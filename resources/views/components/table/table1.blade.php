@@ -1,0 +1,68 @@
+@props([
+    'id',
+    'data' => [],
+    'columns_heads' => [],
+    'columns_bodys' => [],
+    'actions' => [],
+])
+
+<table id="{{ $id }}" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+        <tr>
+            <th scope="col" class="p-4">
+                <div class="flex items-center">
+                    <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="checkbox-all-search" class="sr-only">checkbox</label>
+                </div>
+            </th>
+            @foreach ($columns_heads as $column_head)
+                <th scope="col" class="px-6 py-3">{{ $column_head }}</th>
+            @endforeach
+            <th scope="col" class="pr-25 py-3 text-end whitespace-nowrap w-auto">Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach ($data as $item)
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="w-4 p-4">
+                    <div class="flex items-center">
+                        <input id="checkbox-table-search-{{ $item->id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label for="checkbox-table-search-{{ $item->id }}" class="sr-only">checkbox</label>
+                    </div>
+                </td>
+                @foreach ($columns_bodys as $key)
+                    @if ($key == 'status')
+                        <td class="px-6 py-4">
+                            <span
+                                class="inline-flex items-center px-2 py-1 text-xs font-medium {{ data_get($item, $key) == 'available'|| data_get($item, $key) == 'active' ? 'text-green-800 bg-green-100 dark:bg-green-900 dark:text-green-300' : 'text-red-800 bg-red-100 dark:bg-red-900 dark:text-red-300' }} rounded-full">
+                                {{ data_get($item, $key) }}
+                            </span>
+                        </td>
+                    @endif
+                    <td class="px-6 py-4">
+                        {{ data_get($item, $key) }}
+                    </td>
+                @endforeach
+                <td class="pr-17 py-4 flex items-center justify-end space-x-2">
+                    @foreach ($actions as $label => $url)
+                        @if ($label == 'Delete'|| $label == 'Remove')
+                            <x-alert.deleteComfirmation 
+                                title="Delete Confirmation"
+                                :description="'Are you sure you want to delete ' . (property_exists($item, 'name') ? $item->name : 'this item') . '?'"
+                                :action="is_callable($url) ? $url($item) : route($url, $item->id)"
+                                method="DELETE"
+                            />
+                        @else
+                            <a 
+                                href="{{ is_callable($url) ? $url($item) : route($url, $item->id) }}"
+                                class="text-sm text-blue-600 hover:underline dark:text-blue-500"
+                                >
+                                {{ $label }}
+                            </a>
+                        @endif
+                    @endforeach
+                </td>
+            </tr>
+        @endforeach
+    </tbody>
+</table>
