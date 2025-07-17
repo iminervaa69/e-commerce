@@ -18,7 +18,7 @@
             @foreach ($columns_heads as $column_head)
                 <th scope="col" class="px-6 py-3">{{ $column_head }}</th>
             @endforeach
-            <th scope="col" class="pr-25 py-3 text-end whitespace-nowrap w-auto">Action</th>
+            <th scope="col" class="pr-23 py-3 text-end whitespace-nowrap w-auto">Action</th>
         </tr>
     </thead>
     <tbody>
@@ -38,10 +38,11 @@
                                 {{ data_get($item, $key) }}
                             </span>
                         </td>
+                    @else
+                        <td class="px-6 py-4">
+                            {{ data_get($item, $key) }}
+                        </td>
                     @endif
-                    <td class="px-6 py-4">
-                        {{ data_get($item, $key) }}
-                    </td>
                 @endforeach
                 <td class="pr-17 py-4 flex items-center justify-end space-x-2">
                     @foreach ($actions as $label => $url)

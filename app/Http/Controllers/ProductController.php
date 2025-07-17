@@ -12,7 +12,7 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with('store')->get();
+        $products = Product::with('store')->paginate(10);
 
         $products->each(function ($product) {
             $product->store_name = $product->store->name ?? 'N/A';

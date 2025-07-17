@@ -6,7 +6,6 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductVariantController;
 
-
 Route::get('/', function () {
     return redirect()->route('products.index');
 });

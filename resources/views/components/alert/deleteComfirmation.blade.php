@@ -16,7 +16,7 @@
     <div 
         x-show="open" 
         x-transition 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        class="fixed inset-0 z-50 flex items-center justify-center dark:bg-black darkbg-opacity-50"
     >
         <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 dark:bg-gray-800">
             <div class="flex items-center mb-4 text-red-600">

@@ -4,7 +4,7 @@
 <input type="hidden" name="{{ $name }}-hidden" value="{{ $toggle }}" id="{{ $id }}-hidden" />
 
 {{-- toggle button --}}
-@if ($toggle == 'open')
+@if ($toggle == 'open' || $toggle == 'available')
     <div value = "{{ $toggle }}" id="{{ $id }}" class="inline-flex rounded-md shadow-xs w-full" role="group" toggle = {{ $toggle }} >
         <button id="{{ $id_toggleon }}"  type="button" class="w-6/7 inline-flex items-center px-4 py-2 text-sm font-medium rounded-s-lg focus:ring-2  border-green-800 text-white bg-green-700 hover:bg-green-800  focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800">
         <svg class="w-3 h-6 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
@@ -20,7 +20,7 @@
         {{ $toggleOff }}
         </button>
     </div>
-@elseif ($toggle == 'close')
+@elseif ($toggle == 'close' || $toggle == 'unavailable')
     <div value="{{ $toggle }}" id="{{ $id }}" class="inline-flex rounded-md shadow-xs w-full" role="group"  >
         <button  id="{{ $id_toggleon }}"  type="button" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-s-lg focus:ring-2  border-gray-800 text-white bg-gray-700 hover:bg-gray-800  focus:ring-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800">
         <svg class="w-3 h-6 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">

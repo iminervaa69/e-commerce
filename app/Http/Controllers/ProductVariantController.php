@@ -60,16 +60,7 @@ class ProductVariantController extends Controller
     public function edit(string $id)
     {
         $variant = ProductVariant::find($id);
-        $products = Product::all();
+        $products = Product::with('store')->get();
         return view('pages.products.variants.edit', compact('variant', 'products'));
-    }
-
-    public function show(string $id)
-    {
-        $variant = ProductVariant::find($id);
-        if (!$variant) {
-            return redirect()->route('products.edit')->with('error', 'Product variant not found.');
-        }
-        return view('pages.products.variants.show', compact('variant'));
     }
 }
