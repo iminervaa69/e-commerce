@@ -32,7 +32,7 @@ Edit Category - {{ $category->name }}
                         value='{{ $category->description }}' placeholder='Category description' required />
                 </div>
             </div>
-            <div id="save-group" class="flex mt-4 flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
+            <div id="save-group" class="flex mt-4 flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pr-2 pb-2">
                 <x-button.button1 label="Cancel" id="btn-cancel" color="red"
                     svg='<svg class="w-4 h-5 mr-1.5 text-red-500 group-hover:text-white dark:text-red-500 dark:group-hover:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>'/>
                 <x-button.button1 label="Save" id="btn-save" color="green" type="submit"

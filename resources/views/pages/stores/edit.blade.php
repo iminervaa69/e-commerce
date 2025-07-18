@@ -1,6 +1,6 @@
 @extends('layouts.main')
 @section('title')
-Edit Store
+Edit Store - {{ $store->name }}
 @endsection
 
 @section('content')
@@ -15,7 +15,7 @@ Edit Store
         </div>
     </div>
     <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <form class="mx-auto h-full mb-15" action="{{ route('stores.update', $store->id) }}" method="POST">
+        <form class="mx-auto h-full" action="{{ route('stores.update', $store->id) }}" method="POST">
             @csrf
             @method('PUT')
             <div class="flex gap-10 w-full p-4">
@@ -61,13 +61,20 @@ Edit Store
                     <x-input.toggle name="status" id="store-status" id_toggleon="btn-open" id_toggleoff="btn-close" toggleOn="Open" toggleOff="Close" toggle="{{ $store->status}}"/>
                 </div>
             </div>
-            <div id="save-group" class="flex flex-column mt-10 sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
+            <div id="save-group" class="flex flex-column mt-4 sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pr-2 pb-2">
                 <x-button.button1 label="Cancel" id="btn-cancel" color="red"
                     svg='<svg class="w-4 h-5 mr-1.5 text-red-500 group-hover:text-white dark:text-red-500 dark:group-hover:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>'/>
                 <x-button.button1 label="Save" id="btn-save" color="green" type="submit"
                     svg='<svg class="w-4 h-5  mr-1.5 text-green-500 dark:text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>'/>
             </div>
         </form>
+    </div>
+</div>
+<div class="p-4 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700 mt-5">
+    <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+        <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
+        id="category-search" type="text" 
+        placeholder="Store search" parentClass="w-100 mb-2"/>
         <x-table.table1 
             id="product-table"
             :data="$products"
@@ -75,7 +82,6 @@ Edit Store
             :columns_bodys="['name', 'description']"
             :actions="['Edit' => fn($product) => route('products.edit', $product->id), 'Remove' => fn($product) => route('products.destroy', $product->id),]"
         />
-
     </div>
 </div>
 @endsection

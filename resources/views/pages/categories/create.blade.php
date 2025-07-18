@@ -12,7 +12,7 @@ Add Product
         </div>
     </div>
     <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <form class="mx-auto h-full mb-3" action="{{ route('categories.store') }}" method="POST">
+        <form class="mx-auto h-full" action="{{ route('categories.store') }}" method="POST">
             @csrf
             @method('POST')
             <div class="flex gap-10 w-full p-4">
@@ -29,7 +29,7 @@ Add Product
                         placeholder='Category Description' />
                 </div>
             </div>
-            <div id="save-group" class="flex flex-column  sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
+            <div id="save-group" class="flex flex-column mt-4 sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pr-2 pb-2">
                 <x-button.button1 label="Save" id="btn-save" color="green" type="submit"
                     svg='<svg class="w-4 h-5  mr-1.5 text-green-500 dark:text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>'/>
             </div>

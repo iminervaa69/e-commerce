@@ -1,18 +1,18 @@
 @extends('layouts.main')
 @section('title')
-Add Product
+Add Store
 @endsection
 @section('content')
 <div class="p-4 border-2 border-gray-200 border-dashed rounded-lg dark:border-gray-700 mt-14">
     <div class="flex flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-between pb-4">
-        <p class="block mb-2 text-m ms-2 font-medium text-gray-900 dark:text-white">Store Details</p>
-        <div class="flex flex-column mt-10 sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
+        <p class="block mb-2 text-m ms-2 font-medium text-gray-900 dark:text-white">Add Store</p>
+        <div class="flex flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
             <x-button.button1 href="{{ route('stores.index') }}" id="btn-back" label='Back' color='gray'
                 svg='<svg xmlns="http://www.w3.org/2000/svg"  class="w-4 h-5 mr-1.5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>'/>
         </div>
     </div>
     <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <form class="mx-auto h-full mb-3" action="{{ route('stores.store') }}" method="POST">
+        <form class="mx-auto h-full" action="{{ route('stores.store') }}" method="POST">
             @csrf
             @method('POST')
             <div class="flex gap-10 w-full p-4">
@@ -62,7 +62,7 @@ Add Product
                     <x-input.toggle name="status" id="store-status" id_toggleon="btn-open" id_toggleoff="btn-close" toggleOn="Open" toggleOff="Close" toggle="open"/>
                 </div>
             </div>
-            <div id="save-group" class="flex flex-column mt-10 sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pb-4">
+            <div id="save-group" class="flex flex-column  sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-end pr-2 pb-2">
                 <x-button.button1 label="Save" id="btn-save" color="green" type="submit"
                     svg='<svg class="w-4 h-5  mr-1.5 text-green-500 dark:text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>'/>
             </div>
@@ -80,16 +80,12 @@ const updateToggleStyle = (state) => {
     if (state === 'open') {
         console.log('style to open');
 
-        //btnOpen.removeAttribute('disabled');
         btnOpen.className = 'w-6/7 inline-flex items-center px-4 py-2 text-sm font-medium rounded-s-lg focus:ring-2 border-green-800 text-white bg-green-700 hover:bg-green-800 focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800';
-        //btnClose.addAttribute('disabled', true);
         btnClose.className = 'inline-flex items-center px-4 py-2 text-sm font-medium rounded-e-lg text-white border-gray-800 bg-gray-700 hover:bg-gray-800 focus:ring-2 focus:ring-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-900';
     } else {
         console.log('style to close');
 
-        //btnOpen.addAttribute('disabled', true);
         btnOpen.className = 'inline-flex items-center px-4 py-2 text-sm font-medium rounded-s-lg focus:ring-2 border-gray-800 text-white bg-gray-700 hover:bg-gray-800 focus:ring-gray-300 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800';
-        // btnClose.removeAttribute('disabled');
         btnClose.className = 'w-6/7 inline-flex items-center px-4 py-2 text-sm font-medium rounded-e-lg text-white border-red-800 bg-red-700 hover:bg-red-800 focus:ring-2 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900';
     }
 };
