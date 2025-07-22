@@ -19,7 +19,7 @@ Products
             :data="$products"
             :columns_heads="['Name', 'Description', 'Stores']"
             :columns_bodys="['name', 'description', 'store_name']"
-            :actions="['Edit' => fn($product) => route('products.edit', $product->id), 'Remove' => fn($product) => route('products.destroy', $product->id),]"
+            :actions="['Edit' => fn($product) => route('products.edit', $product->id), 'Delete' => fn($product) => route('products.destroy', $product->id),]"
         />
     </div>
     <div class="flex items-center justify-end pt-4">

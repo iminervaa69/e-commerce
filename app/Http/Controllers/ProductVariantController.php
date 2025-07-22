@@ -63,4 +63,5 @@ class ProductVariantController extends Controller
         $products = Product::with('store')->get();
         return view('pages.products.variants.edit', compact('variant', 'products'));
     }
+    
 }

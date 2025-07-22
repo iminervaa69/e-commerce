@@ -11,6 +11,7 @@
     'right_svg_dropdown_placement' => 'bottom-end',
     'parentClass' => '',
     'inputClass' => '',
+    'disabled' => false
 ])
 
 <div class="@twMerge('flex', $parentClass)">
@@ -22,6 +23,9 @@
     @endif
 
     <input 
+        @if ($disabled==true)
+            disabled
+        @endif
         name="{{ $name }}" 
         type="{{ $type }}" 
         id="{{ $id }}"

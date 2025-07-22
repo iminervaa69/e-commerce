@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Collection|CartItem[] $cart_items
  * @property Collection|ItemShipmentStatus[] $item_shipment_statuses
  * @property Collection|PaidItemBystore[] $paid_item_bystores
+ * @property Collection|ProductImage[] $product_images
  * @property Collection|ProductReview[] $product_reviews
  *
  * @package App\Models
@@ -77,6 +78,11 @@ class ProductVariant extends Model
 	public function paid_item_bystores()
 	{
 		return $this->hasMany(PaidItemBystore::class, 'product_id');
+	}
+
+	public function product_images()
+	{
+		return $this->hasMany(ProductImage::class);
 	}
 
 	public function product_reviews()

@@ -38,6 +38,10 @@
                                 {{ data_get($item, $key) }}
                             </span>
                         </td>
+                    @elseif (in_array($key, ['image', 'image_url']))
+                        <td class="px-6 py-4">
+                            {!! data_get($item, $key) !!}
+                        </td>
                     @else
                         <td class="px-6 py-4">
                             {{ data_get($item, $key) }}
@@ -46,10 +50,17 @@
                 @endforeach
                 <td class="pr-17 py-4 flex items-center justify-end space-x-2">
                     @foreach ($actions as $label => $url)
-                        @if ($label == 'Delete'|| $label == 'Remove')
+                        @if ($label === 'Delete')
                             <x-alert.deleteComfirmation 
                                 title="Delete Confirmation"
                                 :description="'Are you sure you want to delete ' . (property_exists($item, 'name') ? $item->name : 'this item') . '?'"
+                                :action="is_callable($url) ? $url($item) : route($url, $item->id)"
+                                method="DELETE"
+                            />
+                        @elseif ($label === 'Remove')
+                            <x-alert.deleteComfirmation 
+                                title="Remove Confirmation"
+                                :description="'Are you sure you want to remove ' . (property_exists($item, 'name') ? $item->name : 'this item') . ' from the product?'"
                                 :action="is_callable($url) ? $url($item) : route($url, $item->id)"
                                 method="DELETE"
                             />
@@ -57,7 +68,7 @@
                             <a 
                                 href="{{ is_callable($url) ? $url($item) : route($url, $item->id) }}"
                                 class="text-sm text-blue-600 hover:underline dark:text-blue-500"
-                                >
+                            >
                                 {{ $label }}
                             </a>
                         @endif

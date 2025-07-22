@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * 
  * @property Store|null $store
  * @property Collection|ProductCategory[] $product_categories
+ * @property Collection|ProductImage[] $product_images
  * @property Collection|ProductReview[] $product_reviews
  * @property Collection|ProductVariant[] $product_variants
  *
@@ -54,6 +55,11 @@ class Product extends Model
 		return $this->hasMany(ProductCategory::class);
 	}
 
+	public function product_images()
+	{
+		return $this->hasMany(ProductImage::class);
+	}
+
 	public function product_reviews()
 	{
 		return $this->hasMany(ProductReview::class);
@@ -66,14 +72,6 @@ class Product extends Model
 
 	public function categories()
 	{
-		return $this->hasManyThrough(
-			Category::class,
-			ProductCategory::class,
-			'product_id', 
-			'id',
-			'id',
-			'category_id'
-		);
+		return $this->belongsToMany(Category::class, 'product_categories', 'product_id', 'category_id');
 	}
-
 }

@@ -22,11 +22,11 @@ Edit Product - {{ $product->name }}
                 <div class="w-1/2">
                     <x-input.label for="product-name" label="Product Name"/>
                     <x-input.input svg='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-bag-icon lucide-shopping-bag"><path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/></svg>'
-                        id="product-name" type="text" name="name" 
+                        id="product-name" type="text" name="name"
                         value='{{ $product->name }}' placeholder='Product Name' required />
                     <x-input.label for="product-description" label="Product Description" class="mt-4"/>
                     <x-input.textarea svg='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-store-icon lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>'
-                        id="product-description" name="description" 
+                        id="product-description" name="description"
                         value='{{ $product->description }}' placeholder='Product Description' required />
                     <x-input.label for="product-store" label="Store" class="mt-4"/>
                     <x-input.input svg='<svg xmlns="<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-store-icon lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>'
@@ -39,7 +39,7 @@ Edit Product - {{ $product->name }}
                         search_id="search-store"
                         search_placeholder="Search store..."
                         name="store_id"
-                        :items="$stores" 
+                        :items="$stores"
                         :value="old('store_id', $defaultStoreId ?? '')"
                         parentClass="mt-2"
                     />
@@ -55,7 +55,7 @@ Edit Product - {{ $product->name }}
                         <p class="text-gray-500 dark:text-gray-400 text-sm self-center">-</p>
                         <div class="flex w-1/2">
                             <x-input.input id="price-max" type="text" parentClass="w-full"
-                                svg='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock-icon lucide-clock"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>' 
+                                svg='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clock-icon lucide-clock"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10"/></svg>'
                                 placeholder='Maximum Price' required/>
                         </div>
                     </div> --}}
@@ -63,15 +63,12 @@ Edit Product - {{ $product->name }}
                     <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
                             id="category-search" type="text" placeholder='Category search'
                             parentClass='w-100 mb-2'/>
-                    <x-table.table1 
+                    <x-table.table1
                         parentClass="mt-2"
                         id="category-table"
                         :data="$productCategories"
-                        :columns_heads="['Name']"
-                        :columns_bodys="['name']"
-                        :actions="[
-                            'Remove' => fn($productCategory) => route('categories.destroy', $productCategory->id),
-                        ]"
+                        :columns_heads="['Name', 'id']"
+                        :columns_bodys="['name', 'id']"
                     />
                 </div>
             </div>
@@ -94,12 +91,17 @@ Edit Product - {{ $product->name }}
             ]"
         />
         <div id="main-tab-content">
-            <div role="tabpanel" class="rounded-lg bg-gray-50 dark:bg-gray-800" 
+            <div role="tabpanel" class="rounded-lg bg-gray-50 dark:bg-gray-800"
                 id="variants" aria-labelledby="variants-tab">
-                <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
-                    id="image-search" type="text" 
-                    placeholder="Variant search" parentClass="w-100 mb-2"/>
-                <x-table.table1 
+                <div class="flex flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-between mb-2">
+                    <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
+                        id="variant-search" type="text"
+                        placeholder="Variant search" parentClass="w-100"/>
+                    <x-button.button1 id="btn-add" label='Add' color='green'
+                        type="button"  href="{{ route('products.create') }}" onclick="window.location.href='{{ route('stores.create') }}'"
+                        svg='<svg xmlns="http://www.w3.org/2000/svg"  width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="pr-1 lucide lucide-plus-icon lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>'/>
+                </div>
+                <x-table.table1
                     parentClass="mt-2"
                     id="image-table"
                     :data="$productVariants"
@@ -111,26 +113,35 @@ Edit Product - {{ $product->name }}
                     ]"
                 />
             </div>
-            <div role="tabpanel" class="rounded-lg bg-gray-50 dark:bg-gray-800" 
+            <div role="tabpanel" class="rounded-lg bg-gray-50 dark:bg-gray-800"
                 id="images" aria-labelledby="images-tab">
-                <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
-                    id="variant-search" type="text" 
-                    placeholder="Variant search" parentClass="w-100 mb-2"/>
-                <x-table.table1 
-                    parentClass="mt-2"
-                    id="variant-table"
-                    :data="$productVariants"
-                    :columns_heads="['Name', 'Description', 'Price', 'Stock', 'Status']"
-                    :columns_bodys="['name', 'description', 'price', 'stock', 'status']"
+                <div class="flex flex-column sm:flex-row flex-wrap space-y-4 sm:space-y-0 items-center justify-between mb-2">
+                    <x-input.input svg='<svg class="w-5 h-5 text-gray-500 dark:text-gray-400" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>'
+                        id="variant-search" type="text"
+                        placeholder="Variant search" parentClass="w-100"/>
+                    <x-button.button1
+                        id="btn-add"
+                        label="Add"
+                        color="green"
+                        type="button"
+                        href="{{ route('products.images.create', ['product' => $product->id]) }}"
+                        svg='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="pr-1 lucide lucide-plus-icon lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>' />
+                    </div>
+                <x-table.table1
+                    id="variant-image-table"
+                    :data="$productImages"
+                    :columns_heads="['Image', 'URL', 'Primary', 'Related Variant']"
+                    :columns_bodys="['image', 'image_url', 'is_primary', 'product_variant_id']"
                     :actions="[
-                        'Edit' => fn($productVariant) => route('products.variants.edit', ['product' => $productVariant->product_id, 'variant' => $productVariant->id]),
-                        'Remove' => fn($productVariant) => route('products.variants.destroy', ['product' => $productVariant->product_id, 'variant' => $productVariant->id])
+                        'Edit' => fn($img) => route('products.images.edit', ['product' => $img->product_id, 'image' => $img->id]),
+                        'Remove' => fn($img) => route('products.images.destroy', ['product' => $img->product_id, 'image' => $img->id])
                     ]"
                 />
             </div>
         </div>
     </div>
 </div>
+
 @endsection
 
 @section('insert-scripts')

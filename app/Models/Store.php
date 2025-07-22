@@ -17,13 +17,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $id
  * @property string $name
  * @property string $email
- * @property string|null $address
- * @property string|null $phone
+ * @property string $address
+ * @property string $phone
  * @property string|null $description
- * @property string|null $status
- * @property int $day_of_week
- * @property Carbon $open_time
- * @property Carbon $close_time
+ * @property string $status
+ * @property int|null $day_of_week
+ * @property Carbon|null $open_time
+ * @property Carbon|null $close_time
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property string|null $deleted_at
