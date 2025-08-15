@@ -6,12 +6,12 @@
     'actions' => [],
 ])
 
-<table id="{{ $id }}" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+<table id="{{ $id }}" class="w-full text-sm text-left rtl:text-right text-gray-500">
+    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
         <tr>
             <th scope="col" class="p-4">
                 <div class="flex items-center">
-                    <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    <input id="checkbox-all-search" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 focus:ring-2">
                     <label for="checkbox-all-search" class="sr-only">checkbox</label>
                 </div>
             </th>
@@ -23,10 +23,10 @@
     </thead>
     <tbody>
         @foreach ($data as $item)
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+            <tr class="bg-white border-b border-gray-200 hover:bg-gray-50">
                 <td class="w-4 p-4">
                     <div class="flex items-center">
-                        <input id="checkbox-table-search-{{ $item->id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                        <input id="checkbox-table-search-{{ $item->id }}" type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 focus:ring-2">
                         <label for="checkbox-table-search-{{ $item->id }}" class="sr-only">checkbox</label>
                     </div>
                 </td>
@@ -34,7 +34,7 @@
                     @if ($key == 'status')
                         <td class="px-6 py-4">
                             <span
-                                class="inline-flex items-center px-2 py-1 text-xs font-medium {{ data_get($item, $key) == 'available'|| data_get($item, $key) == 'active' ? 'text-green-800 bg-green-100 dark:bg-green-900 dark:text-green-300' : 'text-red-800 bg-red-100 dark:bg-red-900 dark:text-red-300' }} rounded-full">
+                                class="inline-flex items-center px-2 py-1 text-xs font-medium {{ data_get($item, $key) == 'available'|| data_get($item, $key) == 'active' ? 'text-green-800 bg-green-100' : 'text-red-800 bg-red-100' }} rounded-full">
                                 {{ data_get($item, $key) }}
                             </span>
                         </td>
@@ -67,7 +67,7 @@
                         @else
                             <a 
                                 href="{{ is_callable($url) ? $url($item) : route($url, $item->id) }}"
-                                class="text-sm text-blue-600 hover:underline dark:text-blue-500"
+                                class="text-sm text-blue-600 hover:underline"
                             >
                                 {{ $label }}
                             </a>

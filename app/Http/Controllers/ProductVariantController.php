@@ -11,7 +11,7 @@ class ProductVariantController extends Controller
     public function index()
     {
         $productVariants = ProductVariant::get();
-        return view('pages.products.edit', compact('productVariants'));
+        return view('admin.pages.products.edit', compact('productVariants'));
     }
 
     public function store(Request $request)
@@ -55,13 +55,13 @@ class ProductVariantController extends Controller
 
     public function create()
     {
-        return view('pages.products.variants.create');
+        return view('admin.pages.products.variants.create');
     }
     public function edit(string $id)
     {
         $variant = ProductVariant::find($id);
         $products = Product::with('store')->get();
-        return view('pages.products.variants.edit', compact('variant', 'products'));
+        return view('admin.pages.products.variants.edit', compact('variant', 'products'));
     }
     
 }

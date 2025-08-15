@@ -20,7 +20,7 @@ class ProductController extends Controller
             $product->store_name = $product->store->name ?? 'N/A';
         });
 
-        return view('pages.products.index', compact('products'));
+        return view('admin.pages.products.index', compact('products'));
     }
 
     public function store(Request $request)
@@ -58,7 +58,7 @@ class ProductController extends Controller
     public function create()
     {
         $stores = Store::all();
-        return view('pages.products.create', compact('stores'));
+        return view('admin.pages.products.create', compact('stores'));
     }
 
     public function edit(string $id)
@@ -94,7 +94,7 @@ class ProductController extends Controller
 
         $stores = Store::all();
 
-        return view('pages.products.edit', [
+        return view('admin.pages.products.edit', [
             'product' => $product,
             'stores' => $stores,
             'productVariants' => $product->product_variants,

@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
-import laravel from 'laravel-vite-plugin'
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
 
 export default defineConfig({
     plugins: [
@@ -8,4 +8,17 @@ export default defineConfig({
             refresh: true,
         }),
     ],
-})
+    build: {
+        rollupOptions: {
+            external: [],
+            output: {
+                assetFileNames: (assetInfo) => {
+                    if (assetInfo.name.includes('owl.carousel')) {
+                        return 'css/[name][extname]';
+                    }
+                    return 'assets/[name]-[hash][extname]';
+                }
+            }
+        }
+    }
+});

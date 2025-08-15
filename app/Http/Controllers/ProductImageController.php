@@ -16,7 +16,7 @@ class ProductImageController extends Controller
     use UploadTrait;
     public function index()
     {
-        return view('pages.products.images.index');
+        return view('admin.pages.products.images.index');
     }
 
     public function create($productId)
@@ -25,7 +25,7 @@ class ProductImageController extends Controller
         $products = Product::all();
         $productVariants = ProductVariant::where('product_id', $productId)->get();
 
-        return view('pages.products.images.create', compact('product', 'products', 'productVariants'));
+        return view('admin.pages.products.images.create', compact('product', 'products', 'productVariants'));
     }
 
     public function getVariants($productId)
@@ -66,7 +66,7 @@ class ProductImageController extends Controller
 
     public function edit($id)
     {
-        return view('pages.products.images.edit');
+        return view('admin.pages.products.images.edit');
     }
 
     public function update(Request $request, $id)

@@ -11,7 +11,7 @@ class StoreController extends Controller
     public function index()
     {
         $stores = Store::all();
-        return view('pages.stores.index', compact('stores'));
+        return view('admin.pages.stores.index', compact('stores'));
     }
 
     public function store(Request $request)
@@ -58,12 +58,12 @@ class StoreController extends Controller
 
     public function create()
     {
-        return view('pages.stores.create');
+        return view('admin.pages.stores.create');
     }
     public function edit(string $id)
     {
         $store = Store::find($id);
         $products = Product::where('store_id', $id)->get();
-        return view('pages.stores.edit', compact('store', 'products'));
+        return view('admin.pages.stores.edit', compact('store', 'products'));
     }
 }
