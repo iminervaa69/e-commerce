@@ -63,7 +63,7 @@
         @endisset()
         @if(count($tags) > 0)
             <div class="flex justify-between">
-                <span class="text-gray-900 dark:text-gray-200">Etalase:</span>
+                <span class="text-gray-900 dark:text-gray-200">Tag:</span>
                 <div class="flex flex-wrap gap-1">
                     @foreach($tags as $tag)
                         <span class="px-2 py-1 border border-green-400 text-green-400 text-xs rounded">{{ $tag }}</span>

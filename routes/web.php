@@ -7,11 +7,33 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductVariantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductImageController;
-
+use App\Http\Controllers\User\HomeController; 
+use App\Http\Controllers\User\ProductController as UserProductController;
 
 /*
 |--------------------------------------------------------------------------
-| Authentication Routes (Your Custom)
+| Public Routes (No authentication required)
+|--------------------------------------------------------------------------
+*/
+
+// Landing page - accessible to everyone
+Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// Public product routes (no auth required)
+Route::get('/product/{slug}', [UserProductController::class, 'show'])->name('product.show');
+Route::get('/product/{slug}/reviews', [UserProductController::class, 'reviews'])->name('product.reviews');
+
+// Category routes (public)
+Route::get('category/{slug}', [CategoryController::class, 'show'])->name('category.show');
+Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
+
+// Store routes (public)
+Route::get('stores', [StoreController::class, 'index'])->name('stores.index');
+Route::get('store/{slug}', [StoreController::class, 'show'])->name('store.show');
+
+/*
+|--------------------------------------------------------------------------
+| Authentication Routes
 |--------------------------------------------------------------------------
 */
 
@@ -27,16 +49,17 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-    // User Frontend Pages
-    Route::get('dashboard', function () {
-        return view('frontend.pages.home');
-    })->name('dashboard');
-
+    // User Dashboard
+    Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard');
+    
+    // User-specific product actions (require auth)
+    Route::post('/product/{slug}/review', [UserProductController::class, 'storeReview'])->name('product.store-review');
+    
+    // User pages
     Route::get('detail', function () {
         return view('frontend.pages.detail');
     })->name('detail');
 
-    // Add more user frontend pages here
     Route::get('profile', function () {
         return view('frontend.pages.profile');
     })->name('profile');
@@ -52,19 +75,19 @@ Route::middleware('auth')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Protected Resource Routes
+| Protected Resource Routes (Admin/Management)
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth')->prefix('site')->name('site.')->group(function () {
     // Basic CRUD routes
-    Route::resource('site/products', ProductController::class);
-    Route::resource('site/stores', StoreController::class);
-    Route::resource('site/categories', CategoryController::class);
+    Route::resource('products', ProductController::class);
+    Route::resource('stores', StoreController::class);
+    Route::resource('categories', CategoryController::class);
 
     // Nested resource routes
-    Route::resource('site/products.variants', ProductVariantController::class);
-    Route::resource('site/products.images', ProductImageController::class);
+    Route::resource('products.variants', ProductVariantController::class);
+    Route::resource('products.images', ProductImageController::class);
 
     // API route for variants
     Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants']);
@@ -86,6 +109,18 @@ Route::middleware(['auth', 'store.role:admin'])->group(function () {
 Route::middleware(['auth', 'store.owner'])->group(function () {
     Route::delete('site/stores/{store}', [StoreController::class, 'destroy'])->name('stores.destroy');
     Route::get('site/stores/{store}/settings', [StoreController::class, 'settings'])->name('stores.settings');
+});
+
+/*
+|--------------------------------------------------------------------------
+| API Routes (Optional - for AJAX requests)
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('api')->middleware('auth')->name('api.')->group(function () {
+    Route::get('products/featured', [HomeController::class, 'getFeaturedProductsApi']);
+    Route::get('categories/popular', [HomeController::class, 'getPopularCategoriesApi']);
+    Route::get('search/products', [ProductController::class, 'search']);
 });
 
 /*

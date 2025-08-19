@@ -64,4 +64,9 @@ class ProductImage extends Model
 	{
 		return $this->is_primary ? 'Yes' : 'No';
 	}
+
+	public function getImageUrlAttribute()
+	{
+		return asset($this->image_path);
+	}
 }

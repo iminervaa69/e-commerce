@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Carbon\Carbon;
@@ -6,12 +7,14 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 /**
  * Class User
  *
  * @property int $id
  * @property string $name
+ * @property string $slug
  * @property string $email
  * @property Carbon|null $email_verified_at
  * @property string $password
@@ -27,15 +30,15 @@ use Illuminate\Notifications\Notifiable;
  * @property Collection|StoreActionLog[] $store_action_logs
  * @property Collection|Store[] $stores
  */
-class User extends Authenticatable // Changed from Model to Authenticatable
+class User extends Authenticatable
 {
-    use HasFactory, Notifiable; // Add these traits
+    use HasFactory, Notifiable;
 
     protected $table = 'users';
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed', // Add this for automatic password hashing
+        'password' => 'hashed',
     ];
 
     protected $hidden = [
@@ -45,13 +48,57 @@ class User extends Authenticatable // Changed from Model to Authenticatable
 
     protected $fillable = [
         'name',
+        'slug',
         'email',
         'email_verified_at',
         'password',
         'remember_token'
     ];
 
-    // Your existing relationships
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($user) {
+            if (empty($user->slug)) {
+                $user->slug = $user->generateUniqueSlug($user->name);
+            }
+        });
+
+        static::updating(function ($user) {
+            if ($user->isDirty('name') && empty($user->slug)) {
+                $user->slug = $user->generateUniqueSlug($user->name);
+            }
+        });
+    }
+
+    /**
+     * Generate a unique slug for the user
+     */
+    private function generateUniqueSlug($name)
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $counter = 1;
+
+        while (static::where('slug', $slug)->where('id', '!=', $this->id)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Get the route key for the model (for public profiles)
+     * You can comment this out if you don't want slug-based routing for users
+     */
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
+    // Your existing relationships and methods remain the same
     public function cart_items()
     {
         return $this->hasMany(CartItem::class);
@@ -89,7 +136,6 @@ class User extends Authenticatable // Changed from Model to Authenticatable
                     ->withTimestamps();
     }
 
-    // Helper method to check if user has a specific role in any store
     public function hasStoreRole($role = null)
     {
         if ($role) {
@@ -98,7 +144,6 @@ class User extends Authenticatable // Changed from Model to Authenticatable
         return $this->stores()->exists();
     }
 
-    // Helper method to get user's stores by role
     public function storesByRole($role)
     {
         return $this->stores()->wherePivot('role', $role)->get();

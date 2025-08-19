@@ -11,17 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('stores', function (Blueprint $table) {
+        Schema::create('product_variants', function (Blueprint $table) {
             $table->integer('id', true);
             $table->string('name');
-            $table->string('email');
-            $table->string('address', 500)->nullable();
-            $table->string('phone', 50)->nullable();
+            $table->string('slug')->nullable()->index('idx_product_variants_slug');
+            $table->integer('product_id')->index('product_id');
             $table->text('description')->nullable();
-            $table->string('status', 10)->nullable();
-            $table->integer('day_of_week');
-            $table->time('open_time');
-            $table->time('close_time');
+            $table->decimal('price', 12);
+            $table->integer('stock')->default(0);
+            $table->string('status', 10);
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent();
             $table->softDeletes();
@@ -33,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('stores');
+        Schema::dropIfExists('product_variants');
     }
 };
