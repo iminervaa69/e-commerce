@@ -25,32 +25,121 @@ Home
             <x-common.product-card 
                 :image="$product['image']"
                 :title="$product['name']"
-                :price="$product['price_range']"
+                :price="$product['price']"
                 :badge="$product['badge']"
                 :badge-type="$product['badge_type']"
                 :location="$product['location']"
                 :rating="$product['rating']"
                 :href="$product['href']"
+                :store-name="$product['store_name']"
                 :pre-order="$product['is_preorder']"
                 class="hover:scale-105 transition-transform duration-200"
-            >
-                {{-- Action button based on preorder status --}}
-                <div class="mt-3">
-                    @if($product['is_preorder'])
-                        <button class="w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-orange-500 dark:hover:bg-orange-600">
-                            Pre-order Now
-                        </button>
-                    @else
-                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-blue-500 dark:hover:bg-blue-600">
-                            Add to Cart
-                        </button>
-                    @endif
-                </div>
-            </x-common.product-card>
+            />
         @endforeach
     </div>
 </div>
 @endsection
 
 @section('insert-scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners to all "Add to Cart" buttons
+    document.querySelectorAll('[data-add-to-cart]').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const productVariantId = this.getAttribute('data-product-variant-id');
+            const quantity = this.getAttribute('data-quantity') || 1;
+            
+            // Disable button during request
+            this.disabled = true;
+            const originalText = this.textContent;
+            this.textContent = 'Adding...';
+            
+            // Send AJAX request to add item to cart
+            fetch('/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    product_variant_id: productVariantId,
+                    quantity: parseInt(quantity)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    showNotification(data.message, 'success');
+                    
+                    // Update cart count in header if you have one
+                    updateCartCount(data.cart_count);
+                    
+                    // Temporarily change button text to show success
+                    this.textContent = 'Added!';
+                    this.classList.add('bg-green-600', 'hover:bg-green-700');
+                    this.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        this.textContent = originalText;
+                        this.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        this.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        this.disabled = false;
+                    }, 2000);
+                    
+                } else {
+                    showNotification(data.message || 'Failed to add item to cart', 'error');
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred. Please try again.', 'error');
+                this.textContent = originalText;
+                this.disabled = false;
+            });
+        });
+    });
+});
+
+// Function to show notifications
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+// Function to update cart count in header
+function updateCartCount(count) {
+    const cartCountElement = document.querySelector('[data-cart-count]');
+    if (cartCountElement) {
+        cartCountElement.textContent = count;
+        cartCountElement.classList.add('animate-pulse');
+        setTimeout(() => {
+            cartCountElement.classList.remove('animate-pulse');
+        }, 1000);
+    }
+}
+</script>
 @endsection

@@ -4,6 +4,7 @@
     'minOrder' => 1,
     'maxOrder' => null,
     'productId' => null,
+    'productVariantId' => null,
     'showNotes' => false,
     'buttonText' => '+ Keranjang',
     'secondaryButtonText' => 'Beli Langsung'
@@ -54,6 +55,7 @@
             <div>
                 <label class="block text-sm font-medium mb-2 dark:text-white">Catatan untuk penjual (opsional)</label>
                 <textarea 
+                    id="notes"
                     rows="3" 
                     class="w-full border rounded-md p-2 text-xs border-gray-400 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:bg-transparent dark:text-white"
                     placeholder="Tulis catatan..."
@@ -64,6 +66,7 @@
         <div class="space-y-3">
             <button 
                 type="button"
+                id="addToCartBtn"
                 class="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-3 px-4 rounded-md font-medium transition-colors"
                 onclick="addToCart()"
             >
@@ -108,6 +111,7 @@
 const basePrice = {{ $price }};
 const maxStock = {{ $stock }};
 const minOrderQty = {{ $minOrder }};
+const productVariantId = {{ $productVariantId ?? 'null' }};
 
 function updateQuantity() {
     const quantity = parseInt(document.getElementById('quantity').value);
@@ -138,14 +142,110 @@ function updateTotal() {
 }
 
 function addToCart() {
-    const quantity = document.getElementById('quantity').value;
-    // Add your cart logic here
-    console.log('Added to cart:', quantity);
+    const quantity = parseInt(document.getElementById('quantity').value);
+    const notes = document.getElementById('notes')?.value || '';
+    const button = document.getElementById('addToCartBtn');
+    
+    if (!productVariantId) {
+        showNotification('Product variant ID is required', 'error');
+        return;
+    }
+    
+    // Disable button during request
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Adding...';
+    
+    // Send AJAX request to add item to cart
+    fetch('/cart/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            product_variant_id: productVariantId,
+            quantity: quantity,
+            notes: notes
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showNotification(data.message, 'success');
+            
+            // Update cart count in header if you have one
+            updateCartCount(data.cart_count);
+            
+            // Temporarily change button text to show success
+            button.textContent = 'Added!';
+            button.classList.add('bg-green-600', 'hover:bg-green-700');
+            button.classList.remove('bg-cyan-500', 'hover:bg-cyan-600');
+            
+            // Reset button after 2 seconds
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                button.classList.add('bg-cyan-500', 'hover:bg-cyan-600');
+                button.disabled = false;
+            }, 2000);
+            
+        } else {
+            showNotification(data.message || 'Failed to add item to cart', 'error');
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred. Please try again.', 'error');
+        button.textContent = originalText;
+        button.disabled = false;
+    });
 }
 
 function buyNow() {
     const quantity = document.getElementById('quantity').value;
-    // Add your buy now logic here
-    console.log('Buy now:', quantity);
+    const notes = document.getElementById('notes')?.value || '';
+    console.log('Buy now:', quantity, 'Notes:', notes);
 }
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full ${
+        type === 'success' ? 'bg-green-500 text-white' : 
+        type === 'error' ? 'bg-red-500 text-white' : 
+        'bg-blue-500 text-white'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.remove('translate-x-full');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.add('translate-x-full');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+function updateCartCount(count) {
+    const cartCountElement = document.querySelector('[data-cart-count]');
+    if (cartCountElement) {
+        cartCountElement.textContent = count;
+        cartCountElement.classList.add('animate-pulse');
+        setTimeout(() => {
+            cartCountElement.classList.remove('animate-pulse');
+        }, 1000);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateQuantity();
+});
 </script>

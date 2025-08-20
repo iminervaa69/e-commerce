@@ -91,14 +91,14 @@ class HomeController extends Controller
                       ->where('stock', '>', 0);
             })
             ->latest()
-            ->limit(20) // Adjust based on your needs
+            ->limit(20)
             ->get()
             ->map(function ($product) {
                 return [
                     'id' => $product->id,
                     'slug' => $product->slug,
                     'name' => $product->name,
-                    'image' => $product->primary_image?->image_url ?? 'storage/photos/default-product.jpg',
+                    'image' => $product->primary_image?->image_url ?? 'storage/photos/1/oracle.jpg',
                     'price' => $this->formatPrice($product->min_price),
                     'price_range' => $this->getPriceRange($product),
                     'location' => $product->store->address ?? 'Unknown Location',

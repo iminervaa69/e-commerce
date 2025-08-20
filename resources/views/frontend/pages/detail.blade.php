@@ -24,7 +24,7 @@
                         <x-common.info-card 
                             :title="$productInfo['title']"
                             :subtitle="$productInfo['subtitle']"
-                            :price="$productInfo['price_range']"
+                            :price="$productInfo['price']"
                             :rating="$productInfo['rating']"
                             :total-ratings="$productInfo['total_ratings']"
                             :condition="$productInfo['condition']"
@@ -33,6 +33,8 @@
                             :description="$productInfo['description']"
                             :stock="$productInfo['stock']"
                             :preorder-time="$productInfo['preorder_time']"
+                            {{-- :variants="$productVariants"
+                            3 --}}
                         />
 
                         <div class="border-black mt-4">

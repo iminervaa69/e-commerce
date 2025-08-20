@@ -51,6 +51,8 @@ class ProductController extends Controller
         
         // Get product info
         $productInfo = $this->getProductInfo($product);
+
+        // $productVariants = $this->getProductVariants($product);
         
         // Get seller info
         $sellerInfo = $this->getSellerInfo($product->store);
@@ -77,6 +79,7 @@ class ProductController extends Controller
             'recommendedProducts',
             'reviewsData',
             'tabsData'
+            // 'productVariants'
         ));
     }
 
@@ -101,6 +104,19 @@ class ProductController extends Controller
             'important_info' => $product->important_info ?? 'No important information available.'
         ];
     }
+
+    // private function getProductVariants($product)
+    // {
+    //     return $product->product_variants->map(function ($variant) {
+    //         return [
+    //             'id' => $variant->id,
+    //             'label' => $variant->name,
+    //             'sku' => $variant->sku,
+    //             'price' => $this->formatPrice($variant->price),
+    //             'stock' => $variant->stock,
+    //         ];
+    //     })->toArray();
+    // }
 
     /**
      * Generate breadcrumbs for product

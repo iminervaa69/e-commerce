@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductVariantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\User\HomeController; 
+use App\Http\Controllers\CartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
 
 /*
@@ -31,6 +32,20 @@ Route::get('categories', [CategoryController::class, 'index'])->name('categories
 Route::get('stores', [StoreController::class, 'index'])->name('stores.index');
 Route::get('store/{slug}', [StoreController::class, 'show'])->name('store.show');
 
+Route::prefix('cart')->name('cart.')->group(function () {
+    // Cart page
+    Route::get('/', [CartController::class, 'index'])->name('index');
+    
+    // AJAX endpoints   
+    Route::post('/add', [CartController::class, 'addItem'])->name('add');
+    Route::put('/update/{itemId}', [CartController::class, 'updateQuantity'])->name('update');
+    Route::delete('/remove/{itemId}', [CartController::class, 'removeItem'])->name('remove');
+    Route::delete('/clear', [CartController::class, 'clearCart'])->name('clear');
+    
+    // API endpoints for dynamic updates
+    Route::get('/data', [CartController::class, 'getCartData'])->name('data');
+    Route::get('/count', [CartController::class, 'getCartCount'])->name('count');
+});
 /*
 |--------------------------------------------------------------------------
 | Authentication Routes
