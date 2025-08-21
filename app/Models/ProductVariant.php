@@ -15,7 +15,9 @@ use Illuminate\Support\Str;
  * @property string $name
  * @property string $slug
  * @property int $product_id
+ * @property string|null $sku
  * @property string|null $description
+ * @property array|null $variant_combination
  * @property float $price
  * @property int $stock
  * @property string $status
@@ -41,14 +43,17 @@ class ProductVariant extends Model
     protected $casts = [
         'product_id' => 'int',
         'price' => 'float',
-        'stock' => 'int'
+        'stock' => 'int',
+        'variant_combination' => 'array', // Cast JSON to array
     ];
 
     protected $fillable = [
         'name',
         'slug',
         'product_id',
+        'sku',
         'description',
+        'variant_combination',
         'price',
         'stock',
         'status'
@@ -61,6 +66,11 @@ class ProductVariant extends Model
         static::creating(function ($variant) {
             if (empty($variant->slug)) {
                 $variant->slug = $variant->generateSlug($variant->name);
+            }
+            
+            // Auto-generate SKU if not provided
+            if (empty($variant->sku)) {
+                $variant->sku = $variant->generateSku();
             }
         });
 
@@ -78,6 +88,121 @@ class ProductVariant extends Model
     private function generateSlug($name)
     {
         return Str::slug($name);
+    }
+
+    /**
+     * Generate unique SKU for the product variant
+     */
+    private function generateSku()
+    {
+        $product = $this->product ?? Product::find($this->product_id);
+        $baseSlug = $product ? Str::slug($product->name) : 'PROD';
+        
+        // If variant_combination exists, create SKU from attributes
+        if ($this->variant_combination) {
+            $attributeParts = [];
+            foreach ($this->variant_combination as $key => $value) {
+                $attributeParts[] = strtoupper(substr($value, 0, 3));
+            }
+            $suffix = implode('-', $attributeParts);
+        } else {
+            // Fallback: use variant name or random string
+            $suffix = $this->name ? Str::slug($this->name) : Str::random(6);
+        }
+        
+        $baseSku = strtoupper($baseSlug . '-' . $suffix);
+        
+        // Ensure uniqueness
+        $sku = $baseSku;
+        $counter = 1;
+        while (self::where('sku', $sku)->where('id', '!=', $this->id ?? 0)->exists()) {
+            $sku = $baseSku . '-' . $counter;
+            $counter++;
+        }
+        
+        return $sku;
+    }
+
+    /**
+     * Get human-readable attribute display
+     * 
+     * @return string
+     */
+    public function getAttributesDisplayAttribute()
+    {
+        if (!$this->variant_combination) {
+            return null;
+        }
+        
+        $display = [];
+        foreach ($this->variant_combination as $key => $value) {
+            // Try to get display value from product's variant_attributes
+            $productAttributes = $this->product->variant_attributes ?? [];
+            $displayValue = $this->getDisplayValue($key, $value, $productAttributes);
+            
+            $display[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $displayValue;
+        }
+        
+        return implode(', ', $display);
+    }
+
+    /**
+     * Get display value for an attribute
+     */
+    private function getDisplayValue($attributeKey, $value, $productAttributes)
+    {
+        if (isset($productAttributes[$attributeKey]['options'])) {
+            foreach ($productAttributes[$attributeKey]['options'] as $option) {
+                if ($option['value'] === $value) {
+                    return $option['display'] ?? ucfirst($value);
+                }
+            }
+        }
+        
+        return ucfirst(str_replace('_', ' ', $value));
+    }
+
+    /**
+     * Check if variant has specific attribute value
+     * 
+     * @param string $attribute
+     * @param string $value
+     * @return bool
+     */
+    public function hasAttribute($attribute, $value)
+    {
+        return isset($this->variant_combination[$attribute]) && 
+               $this->variant_combination[$attribute] === $value;
+    }
+
+    /**
+     * Get attribute value
+     * 
+     * @param string $attribute
+     * @return mixed|null
+     */
+    public function getAttribute($attribute)
+    {
+        return $this->variant_combination[$attribute] ?? null;
+    }
+
+    /**
+     * Scope: Filter by attribute value
+     */
+    public function scopeWithAttribute($query, $attribute, $value)
+    {
+        return $query->whereJsonContains('variant_combination->' . $attribute, $value);
+    }
+
+    /**
+     * Scope: Filter by multiple attributes
+     */
+    public function scopeWithAttributes($query, array $attributes)
+    {
+        foreach ($attributes as $key => $value) {
+            $query->whereJsonContains('variant_combination->' . $key, $value);
+        }
+        return $query;
     }
 
     /**
@@ -123,4 +248,4 @@ class ProductVariant extends Model
     {
         return $this->hasMany(ProductReview::class, 'product_variants_id');
     }
-}
+}       

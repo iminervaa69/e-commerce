@@ -45,7 +45,9 @@ class Product extends Model
     protected $table = 'products';
 
     protected $casts = [
-        'store_id' => 'int'
+        'store_id' => 'int',
+        'variant_attributes' => 'array',
+        'variant_template_id' => 'int'
     ];
 
     protected $fillable = [
@@ -54,7 +56,9 @@ class Product extends Model
         'store_id',
         'description',
         'specifications',    // New field
-        'important_info'     // New field
+        'important_info',     // New field
+        'variant_template_id',
+        'variant_attributes'
     ];
 
     protected static function boot()
@@ -238,5 +242,113 @@ class Product extends Model
     {
         json_decode($string);
         return json_last_error() === JSON_ERROR_NONE;
+    }
+    
+    /**
+     * New relationships for variant system
+     */
+    public function variantTemplate()
+    {
+        return $this->belongsTo(VariantTemplate::class, 'variant_template_id');
+    }
+
+    /**
+     * Get available variant attributes for this product
+     * Falls back to template if product doesn't have custom attributes
+     */
+    public function getAvailableAttributes()
+    {
+        // Use product's custom attributes if available
+        if ($this->variant_attributes) {
+            return $this->variant_attributes;
+        }
+
+        // Fall back to template attributes
+        if ($this->variantTemplate) {
+            return $this->variantTemplate->template_json;
+        }
+
+        return [];
+    }
+
+    /**
+     * Check if product has variants
+     */
+    public function hasVariants()
+    {
+        return $this->variants()->count() > 1;
+    }
+
+    /**
+     * Get variant combinations that are actually in stock
+     */
+    public function getAvailableCombinations()
+    {
+        return $this->variants()
+            ->where('stock', '>', 0)
+            ->where('status', 'active')
+            ->pluck('variant_combination')
+            ->filter()
+            ->toArray();
+    }
+
+    /**
+     * Generate all possible variant combinations from attributes
+     */
+    public function generateVariantCombinations()
+    {
+        $attributes = $this->getAvailableAttributes();
+        if (empty($attributes)) {
+            return [];
+        }
+
+        return $this->cartesianProduct($attributes);
+    }
+
+    /**
+     * Helper: Generate cartesian product of attribute options
+     */
+    private function cartesianProduct($attributes)
+    {
+        $keys = array_keys($attributes);
+        $values = [];
+        
+        foreach ($attributes as $key => $config) {
+            $values[] = array_column($config['options'], 'value');
+        }
+
+        $combinations = [[]];
+        foreach ($values as $i => $vals) {
+            $temp = [];
+            foreach ($combinations as $combo) {
+                foreach ($vals as $val) {
+                    $temp[] = array_merge($combo, [$keys[$i] => $val]);
+                }
+            }
+            $combinations = $temp;
+        }
+
+        return $combinations;
+    }
+
+    /**
+     * Create variant from template
+     */
+    public function createVariantFromCombination($combination, $additionalData = [])
+    {
+        $attributeNames = [];
+        foreach ($combination as $key => $value) {
+            $attributeNames[] = ucfirst($value);
+        }
+        
+        $variantName = $this->name . ' ' . implode(' ', $attributeNames);
+
+        return $this->variants()->create(array_merge([
+            'name' => $variantName,
+            'variant_combination' => $combination,
+            'price' => $this->base_price ?? 0,
+            'stock' => 0,
+            'status' => 'active'
+        ], $additionalData));
     }
 }

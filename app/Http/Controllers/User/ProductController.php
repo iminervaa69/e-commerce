@@ -4,12 +4,7 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use App\Models\ProductImage;
-use App\Models\ProductVariant;
-use App\Models\ProductReview;
-use App\Models\Store;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 
 class ProductController extends Controller
 {
@@ -32,7 +27,6 @@ class ProductController extends Controller
                       ->where('status', 'approved')
                       ->latest();
             },
-            'categories',
             'product_categories.category'
         ])
         ->where('slug', $slug)
@@ -43,31 +37,14 @@ class ProductController extends Controller
             abort(404, 'Product not found');
         }
 
-        // Get breadcrumb data
+        // Get all required data
         $breadcrumbs = $this->getBreadcrumbs($product);
-        
-        // Get product images for gallery
         $productImages = $this->getProductImages($product);
-        
-        // Get product info
         $productInfo = $this->getProductInfo($product);
-
-        // $productVariants = $this->getProductVariants($product);
-        
-        // Get seller info
         $sellerInfo = $this->getSellerInfo($product->store);
-        
-        // Get related products from same store
         $relatedProducts = $this->getRelatedProducts($product);
-        
-        // Get other recommended products
         $recommendedProducts = $this->getRecommendedProducts($product);
-        
-        // Get reviews data
         $reviewsData = $this->getReviewsData($product);
-        
-        // Get tab content data
-        $tabsData = $this->getTabsData($product);
         
         return view('frontend.pages.detail', compact(
             'product',
@@ -77,46 +54,9 @@ class ProductController extends Controller
             'sellerInfo',
             'relatedProducts',
             'recommendedProducts',
-            'reviewsData',
-            'tabsData'
-            // 'productVariants'
+            'reviewsData'
         ));
     }
-
-    /**
-     * Get tabs content data
-     */
-    private function getTabsData($product)
-    {
-        $specifications = $product->specifications;
-        if (!empty($specifications)) {
-            $decodedSpecs = json_decode($specifications, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSpecs)) {
-                $specifications = $decodedSpecs;
-            }
-        } else {
-            $specifications = [];
-        }
-
-        return [
-            'details' => $product->description ?? 'No detailed description available.',
-            'specifications' => $specifications,
-            'important_info' => $product->important_info ?? 'No important information available.'
-        ];
-    }
-
-    // private function getProductVariants($product)
-    // {
-    //     return $product->product_variants->map(function ($variant) {
-    //         return [
-    //             'id' => $variant->id,
-    //             'label' => $variant->name,
-    //             'sku' => $variant->sku,
-    //             'price' => $this->formatPrice($variant->price),
-    //             'stock' => $variant->stock,
-    //         ];
-    //     })->toArray();
-    // }
 
     /**
      * Generate breadcrumbs for product
@@ -130,12 +70,10 @@ class ProductController extends Controller
         // Add category breadcrumbs
         if ($product->product_categories->isNotEmpty()) {
             $category = $product->product_categories->first()->category;
-            
-            // You can build a more complex category hierarchy here
             $breadcrumbs[] = ['label' => $category->name, 'href' => '#'];
         }
         
-        // Add current product (no href for current page)
+        // Add current product
         $breadcrumbs[] = ['label' => $product->name];
         
         return $breadcrumbs;
@@ -149,7 +87,6 @@ class ProductController extends Controller
         $images = $product->product_images;
         
         if ($images->isEmpty()) {
-            // Return default placeholder
             return [
                 'main' => 'storage/photos/1/placeholder.jpg',
                 'thumbnails' => [
@@ -180,22 +117,14 @@ class ProductController extends Controller
             'title' => $product->name,
             'subtitle' => $product->subtitle ?? $product->sku,
             'price' => $this->formatPrice($product->min_price),
-            'price_range' => $this->getPriceRange($product),
             'rating' => round($product->average_rating, 1),
             'total_ratings' => $product->total_reviews,
             'condition' => $product->condition ?? 'Baru',
             'min_order' => $product->min_order ?? 1,
-            'max_order' => $product->max_order ?? 99,
             'tags' => $product->tags->pluck('name')->toArray(),
             'description' => $product->short_description ?? $product->description,
             'stock' => $activeVariants->sum('stock'),
             'preorder_time' => $product->preorder_days ?? 0,
-            'weight' => $product->weight ?? 0,
-            'dimensions' => [
-                'length' => $product->length ?? 0,
-                'width' => $product->width ?? 0,
-                'height' => $product->height ?? 0
-            ]
         ];
     }
 
@@ -210,8 +139,6 @@ class ProductController extends Controller
             'location' => $store->city ?? $store->address,
             'is_online' => $store->is_online ?? true,
             'response_time' => $store->avg_response_time ?? '5 jam pesanan diproses',
-            'join_date' => $store->created_at,
-            'total_products' => $store->products()->where('status', 'active')->count()
         ];
     }
 
@@ -247,7 +174,6 @@ class ProductController extends Controller
      */
     private function getRecommendedProducts($product)
     {
-        // Get products from same categories
         $categoryIds = $product->product_categories->pluck('category_id')->toArray();
         
         return Product::with([
@@ -296,15 +222,6 @@ class ProductController extends Controller
             'total_comments' => $reviews->whereNotNull('comment')->count(),
             'satisfaction_rate' => $satisfactionRate,
             'ratings_breakdown' => $ratingsBreakdown,
-            'recent_reviews' => $reviews->take(5)->map(function ($review) {
-                return [
-                    'user_name' => $review->user->name ?? 'Anonymous',
-                    'rating' => $review->rating,
-                    'comment' => $review->comment,
-                    'created_at' => $review->created_at,
-                    'helpful_count' => $review->helpful_count ?? 0
-                ];
-            })
         ];
     }
 
@@ -321,9 +238,7 @@ class ProductController extends Controller
             'price' => $this->formatPrice($product->min_price),
             'price_range' => $this->getPriceRange($product),
             'location' => $product->store->city ?? 'Unknown Location',
-            'store_name' => $product->store->name ?? 'Unknown Store',
             'rating' => round($product->average_rating, 1),
-            'total_reviews' => $product->total_reviews,
             'href' => route('product.show', $product->slug),
             'is_preorder' => $this->checkIfPreorder($product),
             'badge' => $this->getProductBadge($product),
@@ -332,7 +247,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Helper methods (same as in HomeController)
+     * Helper methods
      */
     private function formatPrice($price)
     {
@@ -375,14 +290,10 @@ class ProductController extends Controller
     {
         $badge = $this->getProductBadge($product);
         
-        if ($badge === 'New Arrival') {
-            return 'success';
-        }
-        
-        if ($badge === 'Limited Stock') {
-            return 'warning';
-        }
-        
-        return 'primary';
+        return match($badge) {
+            'New Arrival' => 'success',
+            'Limited Stock' => 'warning',
+            default => 'primary'
+        };
     }
 }
