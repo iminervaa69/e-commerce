@@ -8,19 +8,15 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    /**
-     * Display product detail page
-     */
     public function show($slug)
     {
-        // Get product with all necessary relationships
         $product = Product::with([
             'store',
             'product_images' => function($query) {
                 $query->orderBy('is_primary', 'desc');
             },
             'product_variants' => function($query) {
-                $query->where('status', 'active');
+                $query->where('status', 'active')->orderBy('price', 'asc');
             },
             'product_reviews' => function($query) {
                 $query->with('user')
@@ -37,51 +33,70 @@ class ProductController extends Controller
             abort(404, 'Product not found');
         }
 
-        // Get all required data
         $breadcrumbs = $this->getBreadcrumbs($product);
         $productImages = $this->getProductImages($product);
         $productInfo = $this->getProductInfo($product);
+        $productVariants = $this->getProductVariants($product);
         $sellerInfo = $this->getSellerInfo($product->store);
         $relatedProducts = $this->getRelatedProducts($product);
         $recommendedProducts = $this->getRecommendedProducts($product);
         $reviewsData = $this->getReviewsData($product);
+        
+        $selectedVariant = $this->getDefaultSelectedVariant($product);
         
         return view('frontend.pages.detail', compact(
             'product',
             'breadcrumbs',
             'productImages',
             'productInfo',
+            'productVariants',
             'sellerInfo',
             'relatedProducts',
             'recommendedProducts',
-            'reviewsData'
+            'reviewsData',
+            'selectedVariant' // NEW: Pass selected variant
         ));
     }
 
-    /**
-     * Generate breadcrumbs for product
-     */
+    private function getDefaultSelectedVariant($product)
+    {
+        $activeVariants = $product->product_variants->where('status', 'active');
+        
+        if ($activeVariants->isEmpty()) {
+            return null;
+        }
+        
+        $variantWithStock = $activeVariants->where('stock', '>', 0)->first();
+        $defaultVariant = $variantWithStock ?: $activeVariants->first();
+        
+        return [
+            'id' => $defaultVariant->id,
+            'name' => $defaultVariant->name,
+            'sku' => $defaultVariant->sku,
+            'price' => $defaultVariant->price,
+            'formatted_price' => $this->formatPrice($defaultVariant->price),
+            'stock' => $defaultVariant->stock,
+            'attributes_display' => $this->getVariantAttributesDisplay($defaultVariant),
+            'combination' => $defaultVariant->variant_combination ?? []
+        ];
+    }
+
     private function getBreadcrumbs($product)
     {
         $breadcrumbs = [
             ['label' => 'Home', 'href' => route('home')]
         ];
         
-        // Add category breadcrumbs
         if ($product->product_categories->isNotEmpty()) {
             $category = $product->product_categories->first()->category;
             $breadcrumbs[] = ['label' => $category->name, 'href' => '#'];
         }
         
-        // Add current product
         $breadcrumbs[] = ['label' => $product->name];
         
         return $breadcrumbs;
     }
 
-    /**
-     * Get product images for gallery
-     */
     private function getProductImages($product)
     {
         $images = $product->product_images;
@@ -106,9 +121,6 @@ class ProductController extends Controller
         ];
     }
 
-    /**
-     * Get formatted product information
-     */
     private function getProductInfo($product)
     {
         $activeVariants = $product->product_variants->where('status', 'active');
@@ -128,9 +140,132 @@ class ProductController extends Controller
         ];
     }
 
-    /**
-     * Get seller information
-     */
+    private function getProductVariants($product)
+    {
+        $activeVariants = $product->product_variants->where('status', 'active');
+        
+        if ($activeVariants->isEmpty()) {
+            return [];
+        }
+
+        $basePrice = $activeVariants->min('price');
+        
+        $variantTypes = [];
+        
+        foreach ($activeVariants as $variant) {
+            if (!$variant->variant_combination) {
+                continue;
+            }
+            
+            foreach ($variant->variant_combination as $attributeKey => $attributeValue) {
+                if (!isset($variantTypes[$attributeKey])) {
+                    $variantTypes[$attributeKey] = [
+                        'label' => ucfirst(str_replace('_', ' ', $attributeKey)),
+                        'required' => true,
+                        'options' => []
+                    ];
+                }
+                
+                $optionExists = false;
+                foreach ($variantTypes[$attributeKey]['options'] as &$existingOption) {
+                    if ($existingOption['value'] === $attributeValue) {
+                        $optionExists = true;
+                        break;
+                    }
+                }
+                
+                if (!$optionExists) {
+                    $option = [
+                        'id' => $variant->id,
+                        'value' => $attributeValue,
+                        'label' => ucfirst(str_replace('_', ' ', $attributeValue)),
+                        'price_diff' => $variant->price - $basePrice,
+                        'stock' => $variant->stock
+                    ];
+                    
+                    if ($attributeKey === 'color' || $attributeKey === 'warna') {
+                        $option['color_code'] = $this->getColorCode($attributeValue);
+                    }
+                    
+                    $variantTypes[$attributeKey]['options'][] = $option;
+                }
+            }
+        }
+        
+        foreach ($variantTypes as &$variantType) {
+            usort($variantType['options'], function($a, $b) {
+                return $a['price_diff'] <=> $b['price_diff'];
+            });
+        }
+
+        return $variantTypes;
+    }
+    
+    private function getColorCode($colorName)
+    {
+        $colorMap = [
+            // English colors
+            'red' => '#EF4444',
+            'blue' => '#3B82F6', 
+            'green' => '#10B981',
+            'yellow' => '#F59E0B',
+            'purple' => '#8B5CF6',
+            'pink' => '#EC4899',
+            'black' => '#1F2937',
+            'white' => '#F9FAFB',
+            'gray' => '#6B7280',
+            'grey' => '#6B7280',
+            'orange' => '#F97316',
+            'brown' => '#92400E',
+            'navy' => '#1E3A8A',
+            'lime' => '#65A30D',
+            'cyan' => '#0891B2',
+            'teal' => '#0D9488',
+            'indigo' => '#4F46E5',
+            'violet' => '#7C3AED',
+            'rose' => '#F43F5E',
+            'emerald' => '#059669',
+            'sky' => '#0EA5E9',
+            'amber' => '#D97706',
+            'slate' => '#475569',
+            'zinc' => '#52525B',
+            'stone' => '#57534E',
+            
+            // Indonesian colors (common translations)
+            'merah' => '#EF4444',
+            'biru' => '#3B82F6',
+            'hijau' => '#10B981',
+            'kuning' => '#F59E0B',
+            'ungu' => '#8B5CF6',
+            'pink' => '#EC4899',
+            'hitam' => '#1F2937',
+            'putih' => '#F9FAFB',
+            'abu' => '#6B7280',
+            'abu-abu' => '#6B7280',
+            'jingga' => '#F97316',
+            'coklat' => '#92400E',
+            'emas' => '#F59E0B',
+            'perak' => '#9CA3AF',
+        ];
+        
+        $lowercaseColor = strtolower(trim($colorName));
+        return $colorMap[$lowercaseColor] ?? null;
+    }
+
+    private function getVariantAttributesDisplay($variant)
+    {
+        if (!$variant->variant_combination) {
+            return null;
+        }
+        
+        $display = [];
+        foreach ($variant->variant_combination as $key => $value) {
+            $display[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . ucfirst(str_replace('_', ' ', $value));
+        }
+        
+        return implode(', ', $display);
+    }
+
     private function getSellerInfo($store)
     {
         return [
@@ -142,9 +277,6 @@ class ProductController extends Controller
         ];
     }
 
-    /**
-     * Get related products from same store
-     */
     private function getRelatedProducts($product)
     {
         return Product::with([
@@ -154,7 +286,8 @@ class ProductController extends Controller
                 },
                 'product_variants' => function($query) {
                     $query->where('status', 'active');
-                }
+                },
+                'product_reviews'
             ])
             ->where('store_id', $product->store_id)
             ->where('id', '!=', $product->id)
@@ -169,9 +302,6 @@ class ProductController extends Controller
             });
     }
 
-    /**
-     * Get recommended products
-     */
     private function getRecommendedProducts($product)
     {
         $categoryIds = $product->product_categories->pluck('category_id')->toArray();
@@ -200,9 +330,6 @@ class ProductController extends Controller
             });
     }
 
-    /**
-     * Get reviews data
-     */
     private function getReviewsData($product)
     {
         $reviews = $product->product_reviews;
@@ -225,30 +352,25 @@ class ProductController extends Controller
         ];
     }
 
-    /**
-     * Format product card data
-     */
     private function formatProductCard($product)
     {
         return [
             'id' => $product->id,
             'slug' => $product->slug,
             'name' => $product->name,
-            'image' => $product->primary_image?->image_url ?? 'storage/photos/1/placeholder.jpg',
+            'image' => $product->primary_image?->image_url ?? 'storage/photos/1/oracle.jpg',
             'price' => $this->formatPrice($product->min_price),
             'price_range' => $this->getPriceRange($product),
-            'location' => $product->store->city ?? 'Unknown Location',
+            'location' => $product->store->address ?? 'Unknown Location',
+            'store_name' => $product->store->name ?? 'Unknown Store',
             'rating' => round($product->average_rating, 1),
-            'href' => route('product.show', $product->slug),
-            'is_preorder' => $this->checkIfPreorder($product),
+            'total_reviews' => $product->total_reviews,
+            'href' => route('product.show', $product->slug), 
             'badge' => $this->getProductBadge($product),
             'badge_type' => $this->getProductBadgeType($product)
         ];
     }
 
-    /**
-     * Helper methods
-     */
     private function formatPrice($price)
     {
         return 'Rp' . number_format($price, 0, ',', '.');
@@ -295,5 +417,28 @@ class ProductController extends Controller
             'Limited Stock' => 'warning',
             default => 'primary'
         };
+    }
+
+    public function getVariant(Request $request, $productId, $variantId)
+    {
+        $variant = \App\Models\ProductVariant::where('product_id', $productId)
+            ->where('id', $variantId)
+            ->where('status', 'active')
+            ->first();
+        
+        if (!$variant) {
+            return response()->json(['error' => 'Variant not found'], 404);
+        }
+        
+        return response()->json([
+            'id' => $variant->id,
+            'name' => $variant->name,
+            'sku' => $variant->sku,
+            'price' => $variant->price,
+            'formatted_price' => $this->formatPrice($variant->price),
+            'stock' => $variant->stock,
+            'attributes_display' => $this->getVariantAttributesDisplay($variant),
+            'combination' => $variant->variant_combination ?? []
+        ]);
     }
 }

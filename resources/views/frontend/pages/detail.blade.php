@@ -33,8 +33,7 @@
                             :description="$productInfo['description']"
                             :stock="$productInfo['stock']"
                             :preorder-time="$productInfo['preorder_time']"
-                            {{-- :variants="$productVariants"
-                            3 --}}
+                            :variants="$productVariants"
                         />
 
                         <div class="border-black mt-4">
@@ -85,16 +84,16 @@
 
             <div class="lg:col-span-3">
                 <x-common.purchase-section 
-                    :stock="$productInfo['stock']"
-                    :price="$product->min_price"
+                    :stock="$selectedVariant ? $selectedVariant['stock'] : $productInfo['stock']"
+                    :price="$selectedVariant ? $selectedVariant['price'] : $product->min_price"
                     :min-order="$productInfo['min_order']"
                     :product-id="$product->id"
+                    :product-variant-id="$selectedVariant ? $selectedVariant['id'] : null"
                     :show-notes="true"
                 />
             </div>
         </div>
 
-        {{-- Related Products from Same Store --}}
         @if($relatedProducts->isNotEmpty())
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-3 mt-10">Lainnya dari toko ini</h1>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -102,32 +101,19 @@
                     <x-common.product-card 
                         :image="$relatedProduct['image']"
                         :title="$relatedProduct['name']"
-                        :price="$relatedProduct['price_range']"
+                        :price="$relatedProduct['price']"
                         :badge="$relatedProduct['badge']"
                         :badge-type="$relatedProduct['badge_type']"
                         :location="$relatedProduct['location']"
                         :rating="$relatedProduct['rating']"
                         :href="$relatedProduct['href']"
-                        :pre-order="$relatedProduct['is_preorder']"
+                        :store-name="$relatedProduct['store_name']"
                         class="hover:scale-105 transition-transform duration-200"
-                    >
-                        <div class="mt-3">
-                            @if($relatedProduct['is_preorder'])
-                                <button class="w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-orange-500 dark:hover:bg-orange-600">
-                                    Pre-order Now
-                                </button>
-                            @else
-                                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-blue-500 dark:hover:bg-blue-600">
-                                    Add to Cart
-                                </button>
-                            @endif
-                        </div>
-                    </x-common.product-card>
+                    />
                 @endforeach
             </div>
         @endif
 
-        {{-- Recommended Products --}}
         @if($recommendedProducts->isNotEmpty())
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-3 mt-10">Pilihan Lainnya untuk anda</h1>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -135,32 +121,54 @@
                     <x-common.product-card 
                         :image="$recommendedProduct['image']"
                         :title="$recommendedProduct['name']"
-                        :price="$recommendedProduct['price_range']"
+                        :price="$recommendedProduct['price']"
                         :badge="$recommendedProduct['badge']"
                         :badge-type="$recommendedProduct['badge_type']"
                         :location="$recommendedProduct['location']"
                         :rating="$recommendedProduct['rating']"
                         :href="$recommendedProduct['href']"
-                        :pre-order="$recommendedProduct['is_preorder']"
+                        :store-name="$recommendedProduct['store_name']"
                         class="hover:scale-105 transition-transform duration-200"
-                    >
-                        <div class="mt-3">
-                            @if($recommendedProduct['is_preorder'])
-                                <button class="w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-orange-500 dark:hover:bg-orange-600">
-                                    Pre-order Now
-                                </button>
-                            @else
-                                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors dark:bg-blue-500 dark:hover:bg-blue-600">
-                                    Add to Cart
-                                </button>
-                            @endif
-                        </div>
-                    </x-common.product-card>
+                    />
                 @endforeach
             </div>
         @endif
     </div>
 </div>
+
+<script>
+let currentSelectedVariant = @json($selectedVariant);
+
+function updatePurchaseSection(variantData) {
+    currentSelectedVariant = variantData;
+    
+        if (typeof productVariantId !== 'undefined') {
+            productVariantId = variantData.id;
+        }
+        
+        const priceElements = document.querySelectorAll('#subtotal');
+        if (priceElements.length > 0 && typeof updateQuantity === 'function') {
+            bPrice = variantData.price;
+            updateQuantity();
+        }
+        
+        const stockElements = document.querySelectorAll('span:contains("Sisa")');
+        stockElements.forEach(el => {
+            if (el.textContent.includes('Sisa')) {
+                el.textContent = `Sisa ${variantData.stock}`;
+            }
+        });
+}
+
+document.addEventListener('variantSelected', function(event) {
+    updatePurchaseSection(event.detail);
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateQuantity();
+    console.log('Product page loaded with variant:', currentSelectedVariant);
+});
+</script>
 @endsection
 
 @section('scripts')

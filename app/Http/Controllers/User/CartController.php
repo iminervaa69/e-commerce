@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\User;
 
 use App\Services\CartService;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Log;
+use App\Models\ProductVariant;
 
 class CartController extends Controller
 {
@@ -17,6 +19,120 @@ class CartController extends Controller
         $this->cartService = $cartService;
     }
 
+    /**
+     * Add item to cart via AJAX - WITH DEBUGGING
+     */
+    public function addItem(Request $request): JsonResponse
+    {
+        try {
+            // Log the incoming request for debugging
+            Log::info('Cart add item request received', [
+                'data' => $request->all(),
+                'headers' => $request->headers->all()
+            ]);
+
+            // Validate the request
+            $validated = $request->validate([
+                'product_variant_id' => 'required|exists:product_variants,id',
+                'quantity' => 'integer|min:1|max:99',
+                'notes' => 'nullable|string|max:500'
+            ]);
+
+            Log::info('Validation passed', ['validated' => $validated]);
+
+            // Check if the product variant exists and is active
+            $productVariant = ProductVariant::find($validated['product_variant_id']);
+            if (!$productVariant) {
+                Log::error('Product variant not found', ['variant_id' => $validated['product_variant_id']]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product variant not found'
+                ], 404);
+            }
+
+            if ($productVariant->status !== 'active') {
+                Log::warning('Product variant not active', [
+                    'variant_id' => $validated['product_variant_id'],
+                    'status' => $productVariant->status
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product variant is not available'
+                ], 400);
+            }
+
+            // Check stock
+            if ($productVariant->stock < ($validated['quantity'] ?? 1)) {
+                Log::warning('Insufficient stock', [
+                    'variant_id' => $validated['product_variant_id'],
+                    'requested' => $validated['quantity'] ?? 1,
+                    'available' => $productVariant->stock
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient stock available'
+                ], 400);
+            }
+
+            Log::info('About to call CartService addItem method');
+
+            // Add to cart
+            $cartItem = $this->cartService->addItem(
+                $validated['product_variant_id'],
+                $validated['quantity'] ?? 1
+            );
+
+            Log::info('CartService addItem completed', [
+                'cart_item_id' => is_object($cartItem) ? $cartItem->id ?? 'no_id' : 'not_object',
+                'cart_item_type' => gettype($cartItem)
+            ]);
+
+            // Get cart count
+            $cartCount = $this->cartService->getCartCount();
+
+            Log::info('Cart count retrieved', ['count' => $cartCount]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Item added to cart successfully',
+                'cart_count' => $cartCount,
+                'item' => is_object($cartItem) ? [
+                    'id' => $cartItem->id ?? null,
+                    'quantity' => $cartItem->quantity ?? null,
+                    'price' => $cartItem->price_when_added ?? null
+                ] : $cartItem,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed in cart add', [
+                'errors' => $e->errors(),
+                'input' => $request->all()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid data provided',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Add to cart error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add item to cart: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ... rest of your controller methods remain the same
+    
     /**
      * Display the cart page
      */
@@ -50,39 +166,6 @@ class CartController extends Controller
                 'itemCount' => 0,
                 'totalItems' => 0,
             ]);
-        }
-    }
-
-    /**
-     * Add item to cart via AJAX
-     */
-    public function addItem(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'product_variant_id' => 'required|exists:product_variants,id',
-            'quantity' => 'integer|min:1|max:99',
-        ]);
-
-        try {
-            $cartItem = $this->cartService->addItem(
-                $validated['product_variant_id'],
-                $validated['quantity'] ?? 1
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Item added to cart successfully',
-                'cart_count' => $this->cartService->getCartCount(),
-                'item' => $cartItem,
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Add to cart error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to add item to cart: ' . $e->getMessage()
-            ], 500);
         }
     }
 

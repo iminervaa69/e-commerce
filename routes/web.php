@@ -8,7 +8,7 @@ use App\Http\Controllers\ProductVariantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\User\HomeController; 
-use App\Http\Controllers\CartController;
+use App\Http\Controllers\User\CartController as UserCartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
 
 /*
@@ -34,17 +34,17 @@ Route::get('store/{slug}', [StoreController::class, 'show'])->name('store.show')
 
 Route::prefix('cart')->name('cart.')->group(function () {
     // Cart page
-    Route::get('/', [CartController::class, 'index'])->name('index');
+    Route::get('/', [UserCartController::class, 'index'])->name('index');
     
-    // AJAX endpoints   
-    Route::post('/add', [CartController::class, 'addItem'])->name('add');
-    Route::put('/update/{itemId}', [CartController::class, 'updateQuantity'])->name('update');
-    Route::delete('/remove/{itemId}', [CartController::class, 'removeItem'])->name('remove');
-    Route::delete('/clear', [CartController::class, 'clearCart'])->name('clear');
+    // AJAX endpoints - REMOVED the redundant /cart/ prefix
+    Route::post('/add', [UserCartController::class, 'addItem'])->name('add');
+    Route::put('/update/{itemId}', [UserCartController::class, 'updateQuantity'])->name('update');
+    Route::delete('/remove/{itemId}', [UserCartController::class, 'removeItem'])->name('remove');
+    Route::delete('/clear', [UserCartController::class, 'clearCart'])->name('clear');
     
     // API endpoints for dynamic updates
-    Route::get('/data', [CartController::class, 'getCartData'])->name('data');
-    Route::get('/count', [CartController::class, 'getCartCount'])->name('count');
+    Route::get('/data', [UserCartController::class, 'getCartData'])->name('data');
+    Route::get('/count', [UserCartController::class, 'getCartCount'])->name('count');
 });
 /*
 |--------------------------------------------------------------------------
@@ -83,9 +83,9 @@ Route::middleware('auth')->group(function () {
         return view('frontend.pages.orders');
     })->name('orders');
 
-    Route::get('cart', function () {
-        return view('frontend.pages.cart');
-    })->name('cart');
+    // Route::get('cart', function () {
+    //     return view('frontend.pages.cart');
+    // })->name('cart');
 });
 
 /*

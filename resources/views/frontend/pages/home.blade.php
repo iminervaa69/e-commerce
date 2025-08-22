@@ -35,6 +35,19 @@ Home
                 :pre-order="$product['is_preorder']"
                 class="hover:scale-105 transition-transform duration-200"
             />
+            <x-common.product-card 
+                :image="$product['image']"
+                :title="$product['name']"
+                :price="$product['price']"
+                :badge="$product['badge']"
+                :badge-type="$product['badge_type']"
+                :location="$product['location']"
+                :rating="$product['rating']"
+                :href="$product['href']"
+                :store-name="$product['store_name']"
+                :pre-order="$product['is_preorder']"
+                class="hover:scale-105 transition-transform duration-200"
+            />
         @endforeach
     </div>
 </div>

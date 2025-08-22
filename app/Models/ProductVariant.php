@@ -169,19 +169,19 @@ class ProductVariant extends Model
      * @param string $value
      * @return bool
      */
-    public function hasAttribute($attribute, $value)
+    public function hasVariantAttribute($attribute, $value)
     {
         return isset($this->variant_combination[$attribute]) && 
                $this->variant_combination[$attribute] === $value;
     }
 
     /**
-     * Get attribute value
+     * Get variant attribute value
      * 
      * @param string $attribute
      * @return mixed|null
      */
-    public function getAttribute($attribute)
+    public function getVariantAttribute($attribute)
     {
         return $this->variant_combination[$attribute] ?? null;
     }
@@ -248,4 +248,4 @@ class ProductVariant extends Model
     {
         return $this->hasMany(ProductReview::class, 'product_variants_id');
     }
-}       
+}

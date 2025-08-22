@@ -16,9 +16,8 @@
 ])
 
 <div class="space-y-6">
-    {{-- Title and Rating Section --}}
     <div>
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $title }}</h1>
+        <span id="title-text" class="text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $title }}</span>
         @if($subtitle)
             <p class="text-gray-600 dark:text-gray-300 mb-2">{{ $subtitle }}</p>
         @endif
@@ -38,7 +37,6 @@
         @endif
     </div>
 
-    {{-- Price Section --}}
     <div class="flex items-center space-x-3">
         <span id="display-price" class="text-3xl font-bold text-gray-900 dark:text-white">{{ $price }}</span>
         @if($originalPrice)
@@ -47,7 +45,6 @@
         <span id="price-adjustment-display" class="text-lg font-medium text-green-600 dark:text-green-400 hidden"></span>
     </div>
 
-    {{-- Variant Selection --}}
     @if(count($variants) > 0)
     <div class="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
         <h3 class="font-semibold text-lg text-gray-900 dark:text-white">Pilih Varian</h3>
@@ -64,7 +61,6 @@
             </div>
             
             @if($variantType === 'color' && isset($variant['options'][0]['color_code']))
-                {{-- Color variant with color preview --}}
                 <div class="flex flex-wrap gap-2">
                     @foreach($variant['options'] as $option)
                     <div class="relative">
@@ -93,19 +89,18 @@
                                 style="background-color: {{ $option['color_code'] ?? '#gray' }}"
                             ></div>
                             <span class="text-xs text-center dark:text-white">{{ $option['label'] }}</span>
-                            @if(($option['stock'] ?? 0) <= 0)
+                            {{-- @if(($option['stock'] ?? 0) <= 0)
                                 <span class="text-xs text-red-500 mt-1">Habis</span>
                             @elseif(($option['price_diff'] ?? 0) != 0)
                                 <span class="text-xs text-green-600 dark:text-green-400 mt-1">
                                     {{ ($option['price_diff'] ?? 0) > 0 ? '+' : '' }}Rp{{ number_format($option['price_diff'] ?? 0) }}
                                 </span>
-                            @endif
+                            @endif --}}
                         </label>
                     </div>
                     @endforeach
                 </div>
             @else
-                {{-- Regular text-based variants --}}
                 <div class="flex flex-wrap gap-2">
                     @foreach($variant['options'] as $option)
                     <div class="relative">
@@ -130,13 +125,13 @@
                                    {{ ($selectedVariants[$variantType] ?? null) == $option['id'] ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20' : '' }}"
                         >
                             <span class="text-sm font-medium text-center dark:text-white">{{ $option['label'] }}</span>
-                            @if(($option['stock'] ?? 0) <= 0)
+                            {{-- @if(($option['stock'] ?? 0) <= 0)
                                 <span class="text-xs text-red-500 mt-1">Habis</span>
                             @elseif(($option['price_diff'] ?? 0) != 0)
                                 <span class="text-xs text-green-600 dark:text-green-400 mt-1">
                                     {{ ($option['price_diff'] ?? 0) > 0 ? '+' : '' }}Rp{{ number_format($option['price_diff'] ?? 0) }}
                                 </span>
-                            @endif
+                            @endif --}}
                         </label>
                     </div>
                     @endforeach
@@ -145,7 +140,6 @@
         </div>
         @endforeach
         
-        {{-- Selected variant summary --}}
         <div id="variant-summary" class="pt-3 border-t border-gray-200 dark:border-gray-600 hidden">
             <div class="text-sm text-gray-600 dark:text-gray-400">
                 <span class="font-medium">Varian dipilih:</span>
@@ -155,7 +149,6 @@
     </div>
     @endif
 
-    {{-- Product Details Section --}}
     <div class="py-3 space-y-1 border-t border-b border-gray-400 dark:border-gray-700">
         @isset($condition)
             <div class="flex justify-between">
@@ -193,7 +186,6 @@
 </div>
 
 <script>
-// Store selected variants and base values
 let selectedVariants = @json($selectedVariants);
 let variantPriceDiff = 0;
 const basePrice = {{ preg_replace('/[^0-9]/', '', $price) }}; // Extract numeric value
@@ -201,22 +193,17 @@ const basePriceFormatted = "{{ $price }}";
 const baseStock = {{ $stock }};
 
 function updateVariantSelection(variantType, optionId, element) {
-    // Update selected variants
     selectedVariants[variantType] = optionId;
     
-    // Get price difference and stock from selected element
     const priceDiff = parseInt(element.dataset.priceDiff) || 0;
     const variantStock = parseInt(element.dataset.stock) || 0;
     
-    // Calculate total price adjustment from all selected variants
     calculateTotalPriceAdjustment();
     
-    // Update displays
     updatePriceDisplay();
     updateStockDisplay(variantStock);
     updateVariantSummary();
     
-    // Trigger global callback if exists
     if (typeof window.onVariantChange === 'function') {
         window.onVariantChange(selectedVariants, variantPriceDiff, variantStock);
     }
@@ -229,7 +216,6 @@ function updateVariantSelection(variantType, optionId, element) {
 function calculateTotalPriceAdjustment() {
     variantPriceDiff = 0;
     
-    // Sum up price differences from all selected variants
     document.querySelectorAll('.variant-option:checked').forEach(input => {
         variantPriceDiff += parseInt(input.dataset.priceDiff) || 0;
     });
@@ -243,7 +229,6 @@ function updatePriceDisplay() {
         const newPrice = basePrice + variantPriceDiff;
         priceDisplay.textContent = 'Rp' + newPrice.toLocaleString('id-ID');
         
-        // Show price adjustment
         if (variantPriceDiff !== 0 && priceAdjustmentDisplay) {
             priceAdjustmentDisplay.textContent = (variantPriceDiff > 0 ? '+' : '') + 'Rp' + variantPriceDiff.toLocaleString('id-ID');
             priceAdjustmentDisplay.classList.remove('hidden');
@@ -256,7 +241,6 @@ function updatePriceDisplay() {
 function updateStockDisplay(variantStock) {
     const stockDisplay = document.getElementById('stock-display');
     if (stockDisplay) {
-        // Use variant stock if selected, otherwise use base stock
         const displayStock = variantStock || baseStock;
         const stockText = displayStock > 0 ? `${displayStock} tersedia` : 'Stok habis';
         const stockClass = displayStock > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500';
@@ -269,11 +253,18 @@ function updateStockDisplay(variantStock) {
 function updateVariantSummary() {
     const summaryDiv = document.getElementById('variant-summary');
     const selectedText = document.getElementById('selected-variants-text');
+    const titleElement = document.getElementById('title-text');
     
-    if (!summaryDiv || !selectedText) return;
+    if (!summaryDiv || !selectedText || !titleElement) return;
     
-    // Build selected variants text
+    if (!titleElement.dataset.originalTitle) {
+        titleElement.dataset.originalTitle = titleElement.textContent.trim();
+    }
+    
+    const originalTitle = titleElement.dataset.originalTitle;
     let variantTexts = [];
+    let variantTitles = [];
+    
     document.querySelectorAll('.variant-option:checked').forEach(input => {
         const label = document.querySelector(`label[for="${input.id}"]`);
         if (label) {
@@ -281,21 +272,22 @@ function updateVariantSummary() {
             const labelSpan = label.querySelector('span');
             const labelText = labelSpan ? labelSpan.textContent.trim() : label.textContent.trim();
             
-            // Format variant type name
             const formattedVariantType = variantType.charAt(0).toUpperCase() + variantType.slice(1);
-            variantTexts.push(`${formattedVariantType}: ${labelText}`);
+            variantTexts.push(`${formattedVariantType} - ${labelText}`);
+            variantTitles.push(labelText);
         }
     });
     
     if (variantTexts.length > 0) {
         summaryDiv.classList.remove('hidden');
         selectedText.textContent = variantTexts.join(', ');
+        titleElement.textContent = `${originalTitle} ${variantTitles.join(' - ')}`;
     } else {
         summaryDiv.classList.add('hidden');
+        titleElement.textContent = originalTitle; 
     }
 }
 
-// Get currently selected variants (useful for external access)
 function getSelectedVariants() {
     return {
         variants: selectedVariants,
@@ -304,7 +296,6 @@ function getSelectedVariants() {
     };
 }
 
-// Validate if all required variants are selected
 function validateRequiredVariants() {
     const requiredVariants = [];
     @foreach($variants as $variantType => $variant)
@@ -324,11 +315,9 @@ function validateRequiredVariants() {
     return { valid: true };
 }
 
-// Get current variant stock
 function getCurrentVariantStock() {
     const checkedInputs = document.querySelectorAll('.variant-option:checked');
     if (checkedInputs.length > 0) {
-        // Return the minimum stock among selected variants
         let minStock = baseStock;
         checkedInputs.forEach(input => {
             const stock = parseInt(input.dataset.stock) || 0;
@@ -339,20 +328,17 @@ function getCurrentVariantStock() {
     return baseStock;
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     calculateTotalPriceAdjustment();
     updatePriceDisplay();
     updateVariantSummary();
     
-    // Update stock display if variants are pre-selected
     const preSelectedStock = getCurrentVariantStock();
     if (document.querySelectorAll('.variant-option:checked').length > 0) {
         updateStockDisplay(preSelectedStock);
     }
 });
 
-// Export functions for external use
 window.productVariants = {
     getSelectedVariants,
     validateRequiredVariants,
