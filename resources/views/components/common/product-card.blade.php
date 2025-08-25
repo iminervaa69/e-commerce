@@ -7,7 +7,7 @@
     'discount' => null,
     'storeName' => null,
     'badge' => null,
-    'badgeType' => 'warning', // warning, success, info, danger
+    'badgeType' => 'warning',
     'location' => null,
     'rating' => null,
     'href' => '#',

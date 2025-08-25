@@ -5,11 +5,16 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\StoreController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductVariantController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductImageController;
 use App\Http\Controllers\User\HomeController; 
 use App\Http\Controllers\User\CartController as UserCartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
+use GlennRaya\Xendivel\Xendivel;
+
+
+// New Breeze-style Auth Controllers
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -46,46 +51,34 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/data', [UserCartController::class, 'getCartData'])->name('data');
     Route::get('/count', [UserCartController::class, 'getCartCount'])->name('count');
 });
+
 /*
 |--------------------------------------------------------------------------
-| Authentication Routes
+| Authentication Routes (Updated to Breeze Style)
 |--------------------------------------------------------------------------
 */
 
 // Routes for guests only (not authenticated)
 Route::middleware('guest')->group(function () {
-    Route::get('login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('login', [AuthController::class, 'login']);
-    Route::get('register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('register', [AuthController::class, 'register']);
+    // Registration Routes
+    Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('register', [RegisteredUserController::class, 'store']);
+
+    // Login Routes  
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
+    Route::post('login', [AuthenticatedSessionController::class, 'store']);
 });
 
 // Routes for authenticated users only
 Route::middleware('auth')->group(function () {
-    Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+    // Logout Route
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     // User Dashboard
     Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard');
     
     // User-specific product actions (require auth)
     Route::post('/product/{slug}/review', [UserProductController::class, 'storeReview'])->name('product.store-review');
-    
-    // User pages
-    Route::get('detail', function () {
-        return view('frontend.pages.detail');
-    })->name('detail');
-
-    Route::get('profile', function () {
-        return view('frontend.pages.profile');
-    })->name('profile');
-
-    Route::get('orders', function () {
-        return view('frontend.pages.orders');
-    })->name('orders');
-
-    // Route::get('cart', function () {
-    //     return view('frontend.pages.cart');
-    // })->name('cart');
 });
 
 /*
@@ -140,8 +133,26 @@ Route::prefix('api')->middleware('auth')->name('api.')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Breeze Routes (Keep for password reset, email verification, etc.)
+| Additional Auth Routes (Password Reset, Email Verification, etc.)
 |--------------------------------------------------------------------------
 */
 
+// Uncomment this line if you want to add password reset, email verification, etc.
 // require __DIR__.'/auth.php';
+
+Route::post('/process-payment', function (Request $request) {
+    try {
+        $payment = Xendivel::payWithCard($request)
+            ->getResponse();
+        
+        return response()->json([
+            'success' => true,
+            'data' => $payment
+        ]);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
+});

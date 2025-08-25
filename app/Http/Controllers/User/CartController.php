@@ -147,7 +147,7 @@ class CartController extends Controller
             $itemCount = $cartData['item_count'] ?? 0;
             $totalItems = $cartData['total_items'] ?? 0;
 
-            return view('frontend.pages.cart', compact(
+            return view('frontend.pages.cart.index', compact(
                 'cartItems',
                 'subtotal', 
                 'itemCount',
@@ -160,7 +160,7 @@ class CartController extends Controller
             ]);
 
             // Return with empty cart data as fallback
-            return view('frontend.pages.cart', [
+            return view('frontend.pages.cart.index', [
                 'cartItems' => collect(),
                 'subtotal' => 0,
                 'itemCount' => 0,

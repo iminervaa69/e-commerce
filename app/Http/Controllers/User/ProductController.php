@@ -44,7 +44,7 @@ class ProductController extends Controller
         
         $selectedVariant = $this->getDefaultSelectedVariant($product);
         
-        return view('frontend.pages.detail', compact(
+        return view('frontend.pages.products.show', compact(
             'product',
             'breadcrumbs',
             'productImages',
@@ -54,7 +54,7 @@ class ProductController extends Controller
             'relatedProducts',
             'recommendedProducts',
             'reviewsData',
-            'selectedVariant' // NEW: Pass selected variant
+            'selectedVariant' 
         ));
     }
 

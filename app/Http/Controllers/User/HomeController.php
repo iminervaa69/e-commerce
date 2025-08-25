@@ -16,13 +16,10 @@ class HomeController extends Controller
      */
     public function index()
     {
-        // Get carousel images for homepage banner
         $carouselImages = $this->getCarouselImages();
         
-        // Get featured products for the grid
         $products = $this->getFeaturedProducts();
         
-        // Get popular categories (optional)
         $popularCategories = $this->getPopularCategories();
         
         return view('frontend.pages.home', compact('carouselImages', 'products', 'popularCategories'));
@@ -37,7 +34,6 @@ class HomeController extends Controller
                           ->ordered()
                           ->get();
 
-        // If no carousel data exists, return default/fallback images
         if ($carousels->isEmpty()) {
             return collect([
                 [
@@ -55,7 +51,6 @@ class HomeController extends Controller
             ]);
         }
         
-        // Transform to match your current view format
         return $carousels->map(function ($carousel) {
             return [
                 'src' => $carousel->image_url,
