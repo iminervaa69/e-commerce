@@ -10,6 +10,9 @@ use App\Http\Controllers\User\HomeController;
 use App\Http\Controllers\User\CartController as UserCartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
 use GlennRaya\Xendivel\Xendivel;
+use App\Http\Controllers\User\CheckoutController;
+use App\Http\Controllers\User\PaymentController;
+
 
 
 // New Breeze-style Auth Controllers
@@ -156,3 +159,20 @@ Route::post('/process-payment', function (Request $request) {
         ]);
     }
 });
+
+// Checkout routes
+Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+Route::get('/checkout/failed', [CheckoutController::class, 'failed'])->name('checkout.failed');
+
+// Payment processing routes
+Route::post('/payment/card', [PaymentController::class, 'processCardPayment'])->name('payment.card');
+Route::post('/payment/ewallet', [PaymentController::class, 'processEwalletPayment'])->name('payment.ewallet');
+
+// Success and failure pages
+Route::get('/payment/success', [PaymentController::class, 'paymentSuccess'])->name('payment.success');
+Route::get('/payment/failed', [PaymentController::class, 'paymentFailed'])->name('payment.failed');
+
+// E-wallet redirect URLs (required by Xendit)
+Route::get('/ewallet/success', [PaymentController::class, 'ewalletSuccess'])->name('ewallet.success');
+Route::get('/ewallet/failed', [PaymentController::class, 'ewalletFailed'])->name('ewallet.failed');
