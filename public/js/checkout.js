@@ -78,7 +78,7 @@ class CheckoutManager {
         }
     }
 
-    // FIXED: Single processCardPayment method with correct token handling
+    // CORRECTED: Proper card payment flow with correct 3DS handling
     async processCardPayment() {
         try {
             this.setLoading(true);
@@ -97,15 +97,6 @@ class CheckoutManager {
                 return;
             }
 
-            // Create card token
-            const tokenData = await this.createCardToken(cardData);
-            
-            // Check for 'id' instead of 'token_id'
-            if (!tokenData.id) {
-                this.showError('Failed to process card information');
-                return;
-            }
-
             // Get amount as number
             const amount = this.getOrderTotal();
             if (amount <= 0) {
@@ -113,51 +104,128 @@ class CheckoutManager {
                 return;
             }
 
-            console.log('Token data received:', tokenData);
-            console.log('Token ID:', tokenData.id);
-            console.log('Token status:', tokenData.status);
+            console.log('Starting card payment process...');
 
-            // Check if 3DS authentication is required
-            if (tokenData.status === 'IN_REVIEW' && tokenData.payer_authentication_url) {
-                // Handle 3DS authentication
-                await this.handle3DSAuthentication(tokenData, billingData, amount);
+            // Step 1: Create card token
+            const tokenData = await this.createCardToken(cardData, amount); 
+            
+            if (!tokenData.id) {
+                this.showError('Failed to process card information');
                 return;
             }
 
-            // Process payment - use tokenData.id as token_id
-            const paymentData = {
-                ...billingData,
-                amount: Number(amount),
-                token_id: tokenData.id,
-                authentication_id: tokenData.id, // Use same ID for now
-                _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            };
+            console.log('Token created:', tokenData.id);
 
-            console.log('Payment data being sent:', paymentData);
+            // Step 2: Handle token based on its status
+            console.log('Token status:', tokenData.status);
 
-            const response = await fetch('/payment/card', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify(paymentData)
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                window.location.href = result.redirect_url;
+            if (tokenData.status === 'VERIFIED') {
+                // No 3DS required, process payment directly
+                await this.submitPayment(tokenData.id, tokenData.id, billingData, amount);
+            } else if (tokenData.status === 'IN_REVIEW' && tokenData.payer_authentication_url) {
+                // 3DS required, handle popup using the token data
+                await this.handle3DSAuthentication(tokenData, billingData, amount);
             } else {
-                this.showError(result.message || 'Payment failed');
+                this.showError('Token creation failed: ' + tokenData.status);
             }
 
         } catch (error) {
             console.error('Payment error:', error);
-            this.showError('Payment processing failed. Please try again.');
+            this.showError('Payment processing failed: ' + (error.message || 'Please try again.'));
         } finally {
             this.setLoading(false);
+        }
+    }
+
+    // SIMPLIFIED: Handle 3DS using popup closure detection
+    async handle3DSAuthentication(tokenData, billingData, amount) {
+        console.log('3DS authentication required');
+        console.log('Authentication URL:', tokenData.payer_authentication_url);
+        
+        // Show user that 3DS is required
+        this.showError('3D Secure authentication required. Please complete the authentication in the popup window.');
+        
+        // Open popup for 3DS authentication
+        const popup = window.open(
+            tokenData.payer_authentication_url,
+            '3ds-auth',
+            'width=500,height=600,scrollbars=yes,resizable=yes'
+        );
+
+        if (!popup) {
+            this.showError('Please enable popups for 3D Secure authentication');
+            return;
+        }
+        
+        // Simple approach: Check if popup is closed and then try payment
+        const checkClosed = setInterval(async () => {
+            if (popup.closed) {
+                clearInterval(checkClosed);
+                console.log('3DS popup closed, attempting payment...');
+
+                const authUrl = tokenData.payer_authentication_url;
+                const authIdMatch = authUrl.match(/authentications\/([a-zA-Z0-9]+)/);
+                const authenticationId = authIdMatch ? authIdMatch[1] : tokenData.id;
+
+                console.log('Token ID:', tokenData.id);
+                console.log('Authentication ID:', authenticationId);
+                console.log('Regex match result:', authIdMatch);
+                
+                try {
+                    // Process payment - if 3DS failed, the backend will handle the error
+                    await this.submitPayment(tokenData.id, authenticationId, billingData, amount);
+                } catch (error) {
+                    console.error('Payment error after 3DS:', error);
+                    this.showError('Payment failed after authentication. Please try again.');
+                } finally {
+                    this.setLoading(false);
+                }
+            }
+        }, 1000); // Check every second
+
+        // Clear interval after 10 minutes to prevent infinite checking
+        setTimeout(() => {
+            clearInterval(checkClosed);
+            if (!popup.closed) {
+                popup.close();
+                this.showError('3D Secure authentication timed out.');
+                this.setLoading(false);
+            }
+        }, 600000); // 10 minutes timeout
+    }
+
+    // NEW: Submit payment to backend
+    async submitPayment(tokenId, authenticationId, billingData, amount) {
+        console.log('Submitting payment with:', { tokenId, authenticationId });
+
+        const paymentData = {
+            ...billingData,
+            amount: Number(amount),
+            token_id: tokenId,
+            authentication_id: authenticationId, // This is the correct authentication ID
+            _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        };
+
+        console.log('Payment data being sent:', paymentData);
+
+        const response = await fetch('/payment/card', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify(paymentData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('Payment successful, redirecting...');
+            window.location.href = result.redirect_url;
+        } else {
+            console.error('Payment failed:', result);
+            this.showError(result.message || 'Payment failed');
         }
     }
 
@@ -218,75 +286,13 @@ class CheckoutManager {
         }
     }
 
-    // Enhanced 3DS authentication handler
-    async handle3DSAuthentication(tokenData, billingData, amount) {
-        console.log('3DS authentication required');
-        console.log('Authentication URL:', tokenData.payer_authentication_url);
-        
-        // Show user that 3DS is required
-        this.showError('3D Secure authentication required. Please complete the authentication in the popup window.');
-        
-        // Open popup for 3DS authentication
-        const popup = window.open(
-            tokenData.payer_authentication_url,
-            '3ds-auth',
-            'width=500,height=600,scrollbars=yes,resizable=yes'
-        );
-        
-        // Listen for popup completion
-        const checkClosed = setInterval(async () => {
-            if (popup.closed) {
-                clearInterval(checkClosed);
-                console.log('3DS popup closed');
-                
-                // After 3DS completion, the token should be ready for payment
-                // You might need to get the authentication status from Xendit
-                try {
-                    const paymentData = {
-                        ...billingData,
-                        amount: Number(amount),
-                        token_id: tokenData.id,
-                        authentication_id: tokenData.id,
-                        _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    };
-
-                    console.log('Processing payment after 3DS authentication:', paymentData);
-
-                    const response = await fetch('/payment/card', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify(paymentData)
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        window.location.href = result.redirect_url;
-                    } else {
-                        this.showError(result.message || 'Payment failed after authentication');
-                    }
-                } catch (error) {
-                    console.error('Payment error after 3DS:', error);
-                    this.showError('Payment processing failed after authentication. Please try again.');
-                } finally {
-                    this.setLoading(false);
-                }
-            }
-        }, 1000);
-    }
-
-    createCardToken(cardData) {
+    createCardToken(cardData, amount) {
         return new Promise((resolve, reject) => {
             if (typeof Xendit === 'undefined') {
                 reject(new Error('Xendit not loaded'));
                 return;
             }
 
-            const amount = this.getOrderTotal();
             const billingData = this.getBillingData();
             
             if (!billingData) {
@@ -294,24 +300,20 @@ class CheckoutManager {
                 return;
             }
 
-            // Format phone number for Xendit (must be in international format)
-            let formattedPhone = billingData.phone.replace(/\D/g, ''); // Remove non-digits
+            // Format phone number for Xendit
+            let formattedPhone = billingData.phone.replace(/\D/g, '');
             
-            // Add Indonesia country code if phone doesn't start with country code
             if (!formattedPhone.startsWith('62')) {
-                // Remove leading zero if present (Indonesian numbers often start with 08)
                 if (formattedPhone.startsWith('0')) {
                     formattedPhone = formattedPhone.substring(1);
                 }
-                formattedPhone = '62' + formattedPhone; // Add Indonesia country code
+                formattedPhone = '62' + formattedPhone;
             }
             
-            formattedPhone = '+' + formattedPhone; // Add + prefix
-            
-            console.log('Original phone:', billingData.phone);
-            console.log('Formatted phone:', formattedPhone);
+            formattedPhone = '+' + formattedPhone;
             
             const tokenData = {
+                amount: Math.round(amount * 100), 
                 card_number: cardData.cardNumber.replace(/\s/g, ''),
                 card_exp_month: cardData.expMonth,
                 card_exp_year: cardData.expYear,
@@ -320,37 +322,15 @@ class CheckoutManager {
                 card_holder_last_name: billingData.last_name,
                 card_holder_email: billingData.email,
                 card_holder_phone_number: formattedPhone,
-                amount: Math.round(amount * 100), // Convert to cents for token creation
-                should_authenticate: true, // Enable 3DS
                 is_multiple_use: false // Single use token
             };
 
-            console.log('Card token data being sent to Xendit:', tokenData);
+            console.log('Creating card token with data:', tokenData);
 
             Xendit.card.createToken(tokenData, (error, response) => {
                 if (error) {
                     console.error('Xendit token creation error:', error);
-                    
-                    if (error.error_code === 'VALIDATION_ERROR' && error.message.includes('Amount')) {
-                        console.log('Retrying with amount in dollars instead of cents...');
-                        
-                        const retryTokenData = {
-                            ...tokenData,
-                            amount: amount // Use dollars instead of cents
-                        };
-                        
-                        Xendit.card.createToken(retryTokenData, (retryError, retryResponse) => {
-                            if (retryError) {
-                                console.error('Xendit token creation retry failed:', retryError);
-                                reject(retryError);
-                            } else {
-                                console.log('Xendit token creation retry success:', retryResponse);
-                                resolve(retryResponse);
-                            }
-                        });
-                    } else {
-                        reject(error);
-                    }
+                    reject(error);
                 } else {
                     console.log('Xendit token creation success:', response);
                     resolve(response);
@@ -446,3 +426,8 @@ document.addEventListener('DOMContentLoaded', function() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CheckoutManager;
 }
+
+
+
+
+//Submitting payment with: 

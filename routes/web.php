@@ -176,3 +176,8 @@ Route::get('/payment/failed', [PaymentController::class, 'paymentFailed'])->name
 // E-wallet redirect URLs (required by Xendit)
 Route::get('/ewallet/success', [PaymentController::class, 'ewalletSuccess'])->name('ewallet.success');
 Route::get('/ewallet/failed', [PaymentController::class, 'ewalletFailed'])->name('ewallet.failed');
+
+// Xendit webhook (no auth needed)
+Route::post('/xendit/webhook', [PaymentController::class, 'handleWebhook'])
+    ->name('xendit.webhook')
+    ->withoutMiddleware(['auth', 'verified']);
