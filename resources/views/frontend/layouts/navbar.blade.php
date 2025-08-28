@@ -1,5 +1,4 @@
 <style>
-    /* Custom breakpoints for progressive hiding */
     @media (max-width: 1279px) {
         .hide-xl { display: none !important; }
     }
@@ -20,15 +19,12 @@
 <header>
     <nav class="fixed z-100 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700 py-3 px-4">
         <div class="flex justify-between items-center max-w-screen-2xl mx-auto">
-            <!-- Left Section: Logo + Search -->
             <div class="flex justify-start items-center flex-1 min-w-0">
-                <!-- Logo -->
                 <a href="{{ route('home') }}" class="flex items-center flex-shrink-0">
                     <img src="{{ asset('storage/photos/1/icon.png') }}" class="h-8 me-3" alt="RhodeShop Logo" />
                     <span class="self-center text-xl xl:text-2xl font-semibold whitespace-nowrap text-gray-900 dark:text-white transition-colors duration-300">RhodeShop</span>
                 </a>
                 
-                <!-- Search Bar - Hidden on tablet and below -->
                 <div id="main-search" class="ml-4 lg:ml-10 flex-1 max-w-2xl hide-xs">
                     <x-form.search 
                         containerClass='w-full' 
@@ -39,9 +35,7 @@
                 </div>
             </div>
             
-            <!-- Right Section: Actions -->
             <div class="flex items-center space-x-1 sm:space-x-2">
-                <!-- Cart Button - Hidden on extra small screens -->
                 <div id="main-cart" class="relative hide-md">
                     <button type="button" 
                             class="relative p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 transition-colors" 
@@ -57,7 +51,6 @@
                     {{-- <span class="hidden lg:block ml-1 text-sm text-gray-700 dark:text-gray-300 self-center">Cart</span> --}}
                 </div>
 
-                <!-- Notification Button - Hidden on small screens and below  hide-sm-->
                 <div id="main-notifications" class="relative hide-md">
                     <button type="button" 
                             id="notificationHoverTrigger"
@@ -78,14 +71,12 @@
                     />
                 </div>
 
-                <!-- Theme Toggle - Hidden on large screens and below -->
                 <div id="main-theme-toggle" class="hide-lg">
                     <x-navbar.theme-toggle 
                         parentClass="" 
                     />
                 </div>
 
-                <!-- Store Menu - Hidden on XL screens and below -->
                 <div id="main-store" class="relative flex items-center hide-xl">
                     <div class="hidden xl:block ml-4 mr-2">
                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ Auth::user()->store_name ?? 'Store' }}</span>
@@ -100,7 +91,6 @@
                     </button>
                 </div>
 
-                <!-- User Menu - Always visible -->
                 <div  class="relative flex items-center">
                     <div class="hidden lg:block ml-4 mr-2">
                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ Auth::user()->name ?? 'User' }}</span>
@@ -192,7 +182,6 @@
                     </div>  
                 </div>
 
-                <!-- Mobile Menu Toggle - Show when any items are hidden -->
                 <button type="button" 
                         id="toggleMobileMenuButton" 
                         class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 transition-colors">
@@ -205,10 +194,8 @@
         </div>
     </nav>
     
-    <!-- Mobile Menu Dropdown -->
     <div id="toggleMobileMenu" class="hidden fixed top-[73px] left-0 w-full bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-50 shadow-lg">
         <div class="px-4 py-3 space-y-3">
-            <!-- Mobile Search - Show when main search is hidden -->
             <div id="mobile-search-container" class="relative hidden">
                 <x-form.search 
                     containerClass='w-full' 
@@ -218,9 +205,7 @@
                 />
             </div>
 
-            <!-- Mobile Menu Items Container -->
             <div id="mobile-menu-items" class="space-y-1">
-                <!-- Store - Show when hidden from navbar -->
                 <button id="mobile-store" class="hidden w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg">
                     <img class="w-6 h-6 rounded-full object-cover mr-3" 
                          src="{{ Auth::user()->store_avatar ?? asset('storage/photos/1/oracle.jpg') }}" 
@@ -228,14 +213,12 @@
                     <span>{{ Auth::user()->store_name ?? 'My Store' }}</span>
                 </button>
 
-                <!-- Theme Toggle - Show when hidden from navbar -->
                 <div id="mobile-theme-toggle" class="hidden">
                     <x-navbar.theme-toggle 
                         parentClass="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg" 
                     />
                 </div>
 
-                <!-- Notifications - Show when hidden from navbar -->
                 <button id="mobile-notifications" class="hidden w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
                         <path d="M10.268 21a2 2 0 0 0 3.464 0"/>
@@ -245,7 +228,6 @@
                     <span class="ml-auto inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">3</span>
                 </button>
 
-                <!-- Cart - Show when hidden from navbar -->
                 <button id="mobile-cart" class="hidden w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg"
                         onclick="window.location.href='{{ route('cart.index') }}'">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3">
@@ -257,7 +239,6 @@
                 </button>
             </div>
 
-            <!-- User Profile Section - Always show in mobile -->
             <div id="mobile-user-profile" class="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
                 <div class="flex items-center px-3 py-2">
                     <img class="w-8 h-8 rounded-full object-cover mr-3" 
@@ -273,7 +254,6 @@
                     </div>
                 </div>
                 
-                <!-- User Menu Links -->
                 <div class="px-3 pb-2 space-y-1">
                     <a  class="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-lg">
                         <svg class="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
@@ -324,7 +304,6 @@
         </div>
     </div>
 </header>
-
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     class ResponsiveNavbar {

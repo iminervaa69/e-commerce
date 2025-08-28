@@ -74,4 +74,208 @@ input[type="number"] {
 }
 
 
+/* Custom Cart Styles - Add this to your main CSS file */
+
+/* Store group styling */
+.store-group {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.store-group:last-child {
+    border-bottom: none;
+}
+
+.store-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+    background-color: rgba(249, 250, 251, 0.95);
+}
+
+.dark .store-header {
+    background-color: rgba(55, 65, 81, 0.95);
+}
+
+/* Checkbox styling improvements */
+.item-checkbox:checked,
+.store-checkbox:checked,
+#select-all-items:checked {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.item-checkbox:indeterminate,
+.store-checkbox:indeterminate {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8h8'/%3e%3c/svg%3e");
+}
+
+/* Cart item hover effects */
+.cart-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.dark .cart-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Quantity input styling */
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quantity-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Button loading states */
+.quantity-btn:disabled,
+.remove-item:disabled,
+#delete-selected:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Selected items highlight */
+.cart-item:has(.item-checkbox:checked) {
+    background-color: rgba(59, 130, 246, 0.05);
+    border-left: 3px solid #3b82f6;
+}
+
+.dark .cart-item:has(.item-checkbox:checked) {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Store header selected state */
+.store-group:has(.store-checkbox:checked) .store-header {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid #3b82f6;
+}
+
+.dark .store-group:has(.store-checkbox:checked) .store-header {
+    background-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Animation for adding/removing items */
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+}
+
+.cart-item.removing {
+    animation: slideOut 0.3s ease-out forwards;
+}
+
+/* Summary section styling */
+#selected-totals-section {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+    .cart-item {
+        padding: 1rem;
+    }
+    
+    .store-header {
+        padding: 1rem;
+    }
+    
+    .quantity-input {
+        width: 3rem;
+    }
+}
+
+/* Focus states for accessibility */
+.item-checkbox:focus,
+.store-checkbox:focus,
+#select-all-items:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Toast notification styling (if you want to add toast notifications) */
+.toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background-color: #10b981;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    animation: slideInRight 0.3s ease-out;
+}
+
+.toast.error {
+    background-color: #ef4444;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading spinner for buttons */
+.loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Empty cart styling improvements */
+.empty-cart-icon {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
 

@@ -53,6 +53,18 @@ Route::prefix('cart')->name('cart.')->group(function () {
     // API endpoints for dynamic updates
     Route::get('/data', [UserCartController::class, 'getCartData'])->name('data');
     Route::get('/count', [UserCartController::class, 'getCartCount'])->name('count');
+
+    Route::delete('/remove-multiple', [CartController::class, 'removeMultiple'])->name('remove-multiple');
+    Route::post('/apply-promo', [CartController::class, 'applyPromo'])->name('apply-promo');
+    Route::get('/summary', [CartController::class, 'getSummary'])->name('summary');
+    Route::post('/move-to-wishlist/{id}', [CartController::class, 'moveToWishlist'])->name('move-to-wishlist');
+
+    Route::post('/apply-voucher', [CartController::class, 'applyVoucher'])->name('apply-voucher');
+    Route::post('/remove-voucher', [CartController::class, 'removeVoucher'])->name('remove-voucher');
+    Route::get('/available-vouchers', [CartController::class, 'getAvailableVouchers'])->name('available-vouchers');
+    Route::post('/validate-voucher', [CartController::class, 'validateVoucherByCode'])->name('validate-voucher');
+
+    
 });
 
 /*
@@ -142,23 +154,6 @@ Route::prefix('api')->middleware('auth')->name('api.')->group(function () {
 
 // Uncomment this line if you want to add password reset, email verification, etc.
 // require __DIR__.'/auth.php';
-
-Route::post('/process-payment', function (Request $request) {
-    try {
-        $payment = Xendivel::payWithCard($request)
-            ->getResponse();
-        
-        return response()->json([
-            'success' => true,
-            'data' => $payment
-        ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-    }
-});
 
 // Checkout routes
 Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');

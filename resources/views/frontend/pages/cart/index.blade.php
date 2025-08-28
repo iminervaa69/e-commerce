@@ -97,12 +97,13 @@ Cart
                 <div id="cart-summary-container">
                     <x-common.cart-summary 
                         :subtotal="$subtotal ?? 0"
-                        :shipping="9.99"
-                        :tax="($subtotal ?? 0) * 0.08"
+                        :shipping="10000"
+                        :tax="($subtotal ?? 0) * 0.01"
                         :discount="0"
-                        :total="($subtotal ?? 0) + 9.99 + (($subtotal ?? 0) * 0.08)"
+                        :total="($subtotal ?? 0) + 10000 + (($subtotal ?? 0) * 0.01)"
                         :selectedSubtotal="0"
                         :selectedTotal="0"
+                        :selectedVoucher="$selectedVoucher ?? null"
                     />
                 </div>
             </div>
@@ -123,287 +124,25 @@ Cart
         @endif
     </div>
 </div>
+<x-common.voucher-dialog 
+    :vouchers="$availableVouchers ?? []"
+    :selectedVoucher="$selectedVoucher ?? null"
+    :isOpen="true"
+    dialogId="cartVoucherDialog"
+/>
 @endsection
 
 @section('insert-scripts')
 <meta name="csrf-token" content="{{ csrf_token() }}">
+
+<script src="{{ asset('js/cart-manager.js') }}"></script>
+
 <script>
-
-    // selected-subtotal
-    // Cart functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeCartHandlers();
-        updateSelectedTotals();
-    });
-
-    function initializeCartHandlers() {
-        // Quantity update handlers
-        document.querySelectorAll('.quantity-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const action = this.dataset.action;
-                const input = this.parentElement.querySelector('.quantity-input');
-                const itemId = input.dataset.itemId;
-                let value = parseInt(input.value);
-                
-                if (action === 'increase') {
-                    value++;
-                } else if (action === 'decrease' && value > 1) {
-                    value--;
-                }
-                
-                input.value = value;
-                updateCartItem(itemId, value, this);
-            });
-        });
-
-        // Remove item handlers
-        document.querySelectorAll('.remove-item').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const itemId = this.dataset.itemId;
-                removeCartItem(itemId, this);
-            });
-        });
-
-        // Individual item checkbox handlers
-        document.querySelectorAll('.item-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                updateStoreCheckbox(this.dataset.store);
-                updateSelectAllCheckbox();
-                updateSelectedTotals();
-                updateDeleteButton();
-            });
-        });
-
-        // Store checkbox handlers
-        document.querySelectorAll('.store-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const storeName = this.dataset.store;
-                const isChecked = this.checked;
-                
-                // Update all items in this store
-                document.querySelectorAll(`.item-checkbox[data-store="${storeName}"]`).forEach(itemCheckbox => {
-                    itemCheckbox.checked = isChecked;
-                });
-                
-                updateSelectAllCheckbox();
-                updateSelectedTotals();
-                updateDeleteButton();
-            });
-        });
-
-        // Select all items checkbox
-        document.getElementById('select-all-items').addEventListener('change', function() {
-            const isChecked = this.checked;
-            
-            // Update all checkboxes
-            document.querySelectorAll('.item-checkbox').forEach(checkbox => {
-                checkbox.checked = isChecked;
-            });
-            
-            document.querySelectorAll('.store-checkbox').forEach(checkbox => {
-                checkbox.checked = isChecked;
-            });
-            
-            updateSelectedTotals();
-            updateDeleteButton();
-        });
-
-        // Delete selected button
-        document.getElementById('delete-selected').addEventListener('click', function() {
-            const selectedItems = Array.from(document.querySelectorAll('.item-checkbox:checked'))
-                .map(checkbox => checkbox.dataset.itemId);
-            
-            if (selectedItems.length > 0) {
-                if (confirm(`Are you sure you want to remove ${selectedItems.length} item(s) from your cart?`)) {
-                    deleteSelectedItems(selectedItems);
-                }
-            }
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    const dialog = document.getElementById('cartVoucherDialog');
+    if (dialog) {
+        dialog.classList.add('hidden');
     }
-
-    function updateStoreCheckbox(storeName) {
-        const storeItems = document.querySelectorAll(`.item-checkbox[data-store="${storeName}"]`);
-        const checkedStoreItems = document.querySelectorAll(`.item-checkbox[data-store="${storeName}"]:checked`);
-        const storeCheckbox = document.querySelector(`.store-checkbox[data-store="${storeName}"]`);
-        
-        if (storeCheckbox) {
-            if (checkedStoreItems.length === 0) {
-                storeCheckbox.checked = false;
-                storeCheckbox.indeterminate = false;
-            } else if (checkedStoreItems.length === storeItems.length) {
-                storeCheckbox.checked = true;
-                storeCheckbox.indeterminate = false;
-            } else {
-                storeCheckbox.checked = false;
-                storeCheckbox.indeterminate = true;
-            }
-        }
-    }
-
-    function updateSelectAllCheckbox() {
-        const allItems = document.querySelectorAll('.item-checkbox');
-        const checkedItems = document.querySelectorAll('.item-checkbox:checked');
-        const selectAllCheckbox = document.getElementById('select-all-items');
-        
-        if (checkedItems.length === 0) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        } else if (checkedItems.length === allItems.length) {
-            selectAllCheckbox.checked = true;
-            selectAllCheckbox.indeterminate = false;
-        } else {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = true;
-        }
-    }
-
-    function updateSelectedTotals() {
-        let selectedSubtotal = 0;
-        const checkedItems = document.querySelectorAll('.item-checkbox:checked');
-        
-        checkedItems.forEach(checkbox => {
-            const itemElement = checkbox.closest('.cart-item');
-            const priceElement = itemElement.querySelector('[data-item-price]');
-            const quantityElement = itemElement.querySelector('.quantity-input');
-            
-            if (priceElement && quantityElement) {
-                const price = parseFloat(priceElement.dataset.itemPrice);
-                const quantity = parseInt(quantityElement.value);
-                selectedSubtotal += price * quantity;
-            }
-        });
-        
-        const shipping = checkedItems.length > 0 ? 9.99 : 0;
-        const tax = selectedSubtotal * 0.08;
-        const selectedTotal = selectedSubtotal + shipping + tax;
-        
-        // Update summary via AJAX or direct DOM manipulation
-        updateCartSummary(selectedSubtotal, selectedTotal);
-    }
-
-    function updateCartSummary(selectedSubtotal, selectedTotal) {
-        // Update the selected totals in the summary
-        const selectedSubtotalElement = document.getElementById('selected-subtotal');
-        const selectedTotalElement = document.getElementById('selected-total');
-        
-        if (selectedSubtotalElement) {
-            selectedSubtotalElement.textContent = `Rp${selectedSubtotal.toFixed(2)}`;
-        }
-        
-        if (selectedTotalElement) {
-            selectedTotalElement.textContent = `Rp${selectedTotal.toFixed(2)}`;
-        }
-
-        // Show/hide selected totals section
-        const selectedSection = document.getElementById('selected-totals-section');
-        const checkedItems = document.querySelectorAll('.item-checkbox:checked');
-        
-        if (selectedSection) {
-            if (checkedItems.length > 0) {
-                selectedSection.classList.remove('hidden');
-            } else {
-                selectedSection.classList.add('hidden');
-            }
-        }
-    }
-
-    function updateDeleteButton() {
-        const deleteButton = document.getElementById('delete-selected');
-        const checkedItems = document.querySelectorAll('.item-checkbox:checked');
-        
-        if (deleteButton) {
-            deleteButton.disabled = checkedItems.length === 0;
-            deleteButton.textContent = checkedItems.length > 0 ? 
-                `Delete Selected (${checkedItems.length})` : 'Delete Selected';
-        }
-    }
-
-    function updateCartItem(itemId, quantity, element) {
-        element.disabled = true;
-        
-        fetch(`/cart/update/${itemId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({ quantity: quantity })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                updateSelectedTotals();
-                console.log('Item quantity updated successfully');
-            } else {
-                console.error('Failed to update quantity:', data.message);
-                location.reload();
-            }
-        })
-        .catch(error => {
-            console.error('Error updating quantity:', error);
-            location.reload();
-        })
-        .finally(() => {
-            element.disabled = false;
-        });
-    }
-
-    function removeCartItem(itemId, element) {
-        element.disabled = true;
-        
-        fetch(`/cart/remove/${itemId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                console.error('Failed to remove item:', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error removing item:', error);
-        })
-        .finally(() => {
-            element.disabled = false;
-        });
-    }
-
-    function deleteSelectedItems(itemIds) {
-        const deleteButton = document.getElementById('delete-selected');
-        deleteButton.disabled = true;
-        deleteButton.textContent = 'Deleting...';
-        
-        fetch('/cart/remove-multiple', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify({ item_ids: itemIds })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                console.error('Failed to remove items:', data.message);
-                alert('Failed to remove selected items. Please try again.');
-            }
-        })
-        .catch(error => {
-            console.error('Error removing items:', error);
-            alert('An error occurred while removing items. Please try again.');
-        })
-        .finally(() => {
-            deleteButton.disabled = false;
-            deleteButton.textContent = 'Delete Selected';
-        });
-    }
+});
 </script>
 @endsection

@@ -61,9 +61,9 @@
                     </div>
 
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="text-xl font-bold text-gray-900 dark:text-white" data-item-price="{{ $price }}">${{ number_format($price, 2) }}</span>
+                        <span class="text-xl font-bold text-gray-900 dark:text-white" data-item-price="{{ $price }}">Rp{{ number_format($price, 2, ',', '.') }}</span>
                         @if(isset($originalPrice) && $originalPrice)
-                        <span class="text-sm text-gray-500 dark:text-gray-400 line-through">${{ number_format($originalPrice, 2) }}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400 line-through">Rp{{ number_format($originalPrice, 2, ',', '.') }}</span>
                         <span class="text-sm font-medium text-red-600 dark:text-red-400">
                             {{ round((($originalPrice - $price) / $originalPrice) * 100) }}% off
                         </span>
@@ -74,10 +74,19 @@
                 <!-- Quantity and Actions -->
                 <div class="flex flex-col items-end gap-3 min-w-[120px]">
                     <!-- Quantity Control -->
-                    <div class="flex items-center border dark:border-gray-600 rounded-lg">
+                    <div class="flex items-center border dark:border-gray-600 rounded-lg relative">
+                        <!-- Loading overlay -->
+                        <div class="quantity-loading absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-70 rounded-lg flex items-center justify-center hidden">
+                            <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+
                         <button type="button" 
-                                class="quantity-btn p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                class="quantity-btn decrease-btn p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 data-action="decrease"
+                                data-item-id="{{ $id }}"
                                 {{ $quantity <= 1 ? 'disabled' : '' }}>
                             <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
@@ -89,11 +98,13 @@
                                min="1" 
                                max="99"
                                class="quantity-input w-16 px-2 py-1 text-center border-0 bg-transparent text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                               data-item-id="{{ $id }}">
+                               data-item-id="{{ $id }}"
+                               data-original-value="{{ $quantity }}">
                         
                         <button type="button" 
-                                class="quantity-btn p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                                data-action="increase">
+                                class="quantity-btn increase-btn p-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                data-action="increase"
+                                data-item-id="{{ $id }}">
                             <svg class="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -102,14 +113,12 @@
 
                     <!-- Price Display -->
                     <div class="text-right">
-                        <div class="text-lg font-bold text-gray-900 dark:text-white">
-                            ${{ number_format($price * $quantity, 2) }}
+                        <div class="text-lg font-bold text-gray-900 dark:text-white total-price">
+                            Rp{{ number_format($price * $quantity, 2, ',', '.') }}
                         </div>
-                        @if($quantity > 1)
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            ${{ number_format($price, 2) }} each
+                        <div class="text-sm text-gray-500 dark:text-gray-400 unit-price-display" style="{{ $quantity > 1 ? '' : 'display: none;' }}">
+                            Rp{{ number_format($price, 2, ',', '.') }} each
                         </div>
-                        @endif
                     </div>
 
                     <!-- Actions -->
