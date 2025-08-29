@@ -32,17 +32,17 @@ class CheckoutController extends Controller
         // Get payment details from session or request
         $orderId = $request->get('order_id', Session::get('last_order_id', 'ORD' . time()));
         $amount = $request->get('amount', Session::get('last_amount', '0.00'));
-        
+
         // Clear any cart data
         Session::forget(['cart', 'last_order_id', 'last_amount']);
-        
+
         return view('frontend.pages.checkout.success', compact('orderId', 'amount'));
     }
 
     public function failed(Request $request)
     {
         $errorMessage = $request->get('error', 'Payment could not be processed. Please try again.');
-        
+
         return view('frontend.pages.checkout.failed', compact('errorMessage'));
     }
 

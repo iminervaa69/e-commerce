@@ -20,124 +20,47 @@ Checkout
             <!-- Left Side - Checkout Form -->
             <div class="lg:col-span-2">
                 <div class="space-y-6">
-                    <!-- Payment Method Selection -->
+                    <!-- Shipping Address Selection -->
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 transition-colors duration-300">
                         <div class="p-6 border-b dark:border-gray-700">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Payment Method</h2>
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Shipping Address</h2>
+                                <button type="button" id="add-new-address" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium">
+                                    + Add New Address
+                                </button>
+                            </div>
                         </div>
                         <div class="p-6">
-                            <div class="space-y-4" x-data="{ paymentMethod: 'card' }">
-                                <!-- Credit/Debit Card -->
-                                <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300"
-                                       :class="paymentMethod === 'card' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'">
-                                    <input type="radio" name="payment_method" value="card" x-model="paymentMethod" class="text-blue-600">
-                                    <div class="ml-3">
-                                        <div class="flex items-center">
-                                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v8H4V6z"/>
-                                            </svg>
-                                            <span class="font-medium text-gray-900 dark:text-white">Credit/Debit Card</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">Visa, Mastercard, etc.</p>
-                                    </div>
-                                </label>
-
-                                <input type="hidden" name="_token" value="{{ csrf_token() }}" id="csrf-token">
-                                
-                                <!-- E-Wallet -->
-                                <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300"
-                                       :class="paymentMethod === 'ewallet' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'">
-                                    <input type="radio" name="payment_method" value="ewallet" x-model="paymentMethod" class="text-blue-600">
-                                    <div class="ml-3">
-                                        <div class="flex items-center">
-                                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-                                            </svg>
-                                            <span class="font-medium text-gray-900 dark:text-white">E-Wallet</span>
-                                        </div>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">GCash, ShopeePay, GrabPay, etc.</p>
-                                    </div>
-                                </label>
-
-                                <!-- Card Form -->
-                                <div x-show="paymentMethod === 'card'" x-transition class="mt-6">
-                                    <form id="card-form" class="space-y-4">
-                                        <div class="grid grid-cols-1 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Card Number</label>
-                                                <input type="text" id="card-number" placeholder="1234 5678 9012 3456" 
-                                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                            </div>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Expiry Date</label>
-                                                <input type="text" id="card-expiry" placeholder="MM/YY" 
-                                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">CVV</label>
-                                                <input type="text" id="card-cvv" placeholder="123" 
-                                                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cardholder Name</label>
-                                            <input type="text" id="card-name" placeholder="John Doe" 
-                                                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                        </div>
-                                    </form>
-                                </div>
-
-                                <!-- E-Wallet Selection -->
-                                <div x-show="paymentMethod === 'ewallet'" x-transition class="mt-6">
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500" data-channel="PH_GCASH">
-                                            <div class="text-center">
-                                                <div class="text-blue-600 font-semibold">GCash</div>
-                                            </div>
-                                        </button>
-                                        <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500" data-channel="PH_SHOPEEPAY">
-                                            <div class="text-center">
-                                                <div class="text-orange-600 font-semibold">ShopeePay</div>
-                                            </div>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <!-- Address Selection Component -->
+                            @include('frontend.checkout.components.address-selector')
                         </div>
                     </div>
 
                     <!-- Billing Information -->
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 transition-colors duration-300">
                         <div class="p-6 border-b dark:border-gray-700">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Billing Information</h2>
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Billing Information</h2>
+                                <label class="flex items-center text-sm">
+                                    <input type="checkbox" id="same-as-shipping" class="text-blue-600 mr-2 rounded">
+                                    <span class="text-gray-700 dark:text-gray-300">Same as shipping</span>
+                                </label>
+                            </div>
                         </div>
                         <div class="p-6">
-                            <form id="billing-form" class="space-y-4">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">First Name</label>
-                                        <input type="text" name="first_name" 
-                                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Last Name</label>
-                                        <input type="text" name="last_name" 
-                                               class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                                    <input type="email" name="email" 
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone Number</label>
-                                    <input type="tel" name="phone" 
-                                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
-                                </div>
-                            </form>
+                            <!-- Billing Information Component -->
+                            @include('frontend.checkout.components.billing-selector')
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Selection -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 transition-colors duration-300">
+                        <div class="p-6 border-b dark:border-gray-700">
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Payment Method</h2>
+                        </div>
+                        <div class="p-6">
+                            <!-- Payment Method Component -->
+                            @include('frontend.checkout.components.payment-method')
                         </div>
                     </div>
                 </div>
@@ -152,37 +75,88 @@ Checkout
                     <div class="p-6">
                         <!-- Order Items -->
                         <div class="space-y-4 mb-6">
-                            <!-- Sample items - replace with your cart data -->
-                            <div class="flex items-center space-x-4">
-                                <div class="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-                                <div class="flex-1">
-                                    <h3 class="font-medium text-gray-900 dark:text-white">Sample Product</h3>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">Qty: 1</p>
+                            @if(isset($selectedItems) && $selectedItems->count() > 0)
+                                @foreach($selectedItems as $item)
+                                <div class="flex items-center space-x-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                    <div class="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden flex-shrink-0">
+                                        @if($item->productVariant->image ?? $item->productVariant->product->featured_image)
+                                            <img src="{{ asset('storage/' . ($item->productVariant->image ?? $item->productVariant->product->featured_image)) }}"
+                                                 alt="{{ $item->productVariant->product->name }}"
+                                                 class="w-full h-full object-cover">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center text-gray-400">
+                                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="font-medium text-gray-900 dark:text-white truncate">
+                                            {{ $item->productVariant->product->name }}
+                                        </h3>
+                                        @if($item->productVariant->attributes && count($item->productVariant->attributes) > 0)
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                @foreach($item->productVariant->attributes as $attr => $value)
+                                                    {{ ucfirst($attr) }}: {{ $value }}{{ !$loop->last ? ', ' : '' }}
+                                                @endforeach
+                                            </p>
+                                        @endif
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Qty: {{ $item->quantity }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Store: {{ $item->productVariant->product->store->name ?? 'Unknown Store' }}
+                                        </p>
+                                    </div>
+                                    <div class="text-right flex-shrink-0">
+                                        @if($item->productVariant->compare_at_price && $item->productVariant->compare_at_price > $item->price_when_added)
+                                            <p class="text-xs text-gray-400 line-through">
+                                                Rp{{ number_format($item->productVariant->compare_at_price, 0, ',', '.') }}
+                                            </p>
+                                        @endif
+                                        <p class="font-medium text-gray-900 dark:text-white">
+                                            Rp{{ number_format($item->price_when_added * $item->quantity, 0, ',', '.') }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Rp{{ number_format($item->price_when_added, 0, ',', '.') }} each
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="text-right">
-                                    <p class="font-medium text-gray-900 dark:text-white">$99.00</p>
+                                @endforeach
+                            @else
+                                <div class="text-center py-8">
+                                    <p class="text-gray-500 dark:text-gray-400">No items to checkout</p>
                                 </div>
-                            </div>
+                            @endif
                         </div>
 
                         <!-- Summary -->
                         <div class="border-t dark:border-gray-700 pt-4 space-y-2">
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
-                                <span class="text-gray-900 dark:text-white" id="subtotal">$99.00</span>
+                                <span class="text-gray-900 dark:text-white" id="subtotal">Rp{{ number_format($subtotal ?? 0, 0, ',', '.') }}</span>
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Shipping</span>
-                                <span class="text-gray-900 dark:text-white">$9.99</span>
+                                <span class="text-gray-900 dark:text-white">Rp{{ number_format($shipping ?? 5000, 0, ',', '.') }}</span>
                             </div>
                             <div class="flex justify-between text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">Tax</span>
-                                <span class="text-gray-900 dark:text-white">$8.72</span>
+                                <span class="text-gray-900 dark:text-white">Rp{{ number_format($tax ?? 0, 0, ',', '.') }}</span>
                             </div>
+                            @if(isset($discount) && $discount > 0)
+                            <div class="flex justify-between text-sm text-green-600 dark:text-green-400">
+                                <span>Discount
+                                    @if(isset($selectedVoucher))
+                                        <span class="text-xs">({{ $selectedVoucher['code'] ?? 'Voucher' }})</span>
+                                    @endif
+                                </span>
+                                <span>-Rp{{ number_format($discount, 0, ',', '.') }}</span>
+                            </div>
+                            @endif
                             <div class="border-t dark:border-gray-700 pt-2">
                                 <div class="flex justify-between">
                                     <span class="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
-                                    <span class="text-lg font-semibold text-gray-900 dark:text-white" id="total">$117.71</span>
+                                    <span class="text-lg font-semibold text-gray-900 dark:text-white" id="total">Rp{{ number_format($total ?? 0, 0, ',', '.') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -202,6 +176,9 @@ Checkout
     </div>
 </div>
 
+<!-- Address Modal -->
+@include('frontend.checkout.components.address-modal')
+
 <!-- Hidden form for payment processing -->
 <form id="payment-form" style="display: none;">
     <input type="hidden" name="_token" value="{{ csrf_token() }}">
@@ -209,6 +186,8 @@ Checkout
     <input type="hidden" name="token_id" id="payment-token">
     <input type="hidden" name="authentication_id" id="payment-auth">
     <input type="hidden" name="channel_code" id="payment-channel">
+    <input type="hidden" name="shipping_address_id" id="shipping-address-id">
+    <input type="hidden" name="billing_address_id" id="billing-address-id">
 </form>
 @endsection
 
@@ -230,4 +209,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script src="{{ asset('js/checkout.js') }}"></script>
+<script src="{{ asset('js/checkout-components.js') }}"></script>
 @endpush

@@ -17,11 +17,11 @@ class HomeController extends Controller
     public function index()
     {
         $carouselImages = $this->getCarouselImages();
-        
+
         $products = $this->getFeaturedProducts();
-        
+
         $popularCategories = $this->getPopularCategories();
-        
+
         return view('frontend.pages.home', compact('carouselImages', 'products', 'popularCategories'));
     }
 
@@ -50,7 +50,7 @@ class HomeController extends Controller
                 ]
             ]);
         }
-        
+
         return $carousels->map(function ($carousel) {
             return [
                 'src' => $carousel->image_url,
@@ -63,13 +63,10 @@ class HomeController extends Controller
         });
     }
 
-    /**
-     * Get featured products for homepage grid
-     */
     private function getFeaturedProducts()
     {
         return Product::with([
-                'store', 
+                'store',
                 'product_images' => function($query) {
                     $query->orderBy('is_primary', 'desc');
                 },
@@ -100,7 +97,7 @@ class HomeController extends Controller
                     'store_name' => $product->store->name ?? 'Unknown Store',
                     'rating' => round($product->average_rating, 1),
                     'total_reviews' => $product->total_reviews,
-                    'href' => route('product.show', $product->slug), 
+                    'href' => route('product.show', $product->slug),
                     'is_preorder' => $this->checkIfPreorder($product),
                     'badge' => $this->getProductBadge($product),
                     'badge_type' => $this->getProductBadgeType($product)
@@ -134,11 +131,11 @@ class HomeController extends Controller
     {
         $minPrice = $product->min_price;
         $maxPrice = $product->max_price;
-        
+
         if ($minPrice == $maxPrice) {
             return $this->formatPrice($minPrice);
         }
-        
+
         return $this->formatPrice($minPrice) . ' - ' . $this->formatPrice($maxPrice);
     }
 
@@ -154,15 +151,15 @@ class HomeController extends Controller
     {
         // Add your badge logic here
         // Examples: "New", "Sale", "Limited Stock", etc.
-        
+
         if ($product->created_at->gt(now()->subDays(7))) {
             return 'New Arrival';
         }
-        
+
         if ($product->product_variants->sum('stock') < 10) {
             return 'Limited Stock';
         }
-        
+
         // You can add discount/promo logic here
         return null;
     }
@@ -170,15 +167,15 @@ class HomeController extends Controller
     private function getProductBadgeType($product)
     {
         $badge = $this->getProductBadge($product);
-        
+
         if ($badge === 'New Arrival') {
             return 'success';
         }
-        
+
         if ($badge === 'Limited Stock') {
             return 'warning';
         }
-        
+
         return 'primary';
     }
 }

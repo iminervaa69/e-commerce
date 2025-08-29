@@ -32,7 +32,7 @@ Cart
                             </div>
                         </div>
                     </div>
-                    
+
                     <div id="cart-items-container">
                         @php
                             $groupedItems = $cartItems->groupBy(function($item) {
@@ -64,7 +64,7 @@ Cart
                             <div class="store-items divide-y dark:divide-gray-700">
                                 @foreach($storeItems as $item)
                                 <div class="cart-item" data-item-id="{{ $item->id }}" data-store="{{ $storeName }}">
-                                    <x-common.cart-item 
+                                    <x-common.cart-item
                                         :id="$item->id"
                                         :name="$item->productVariant->product->name"
                                         :price="$item->price_when_added"
@@ -95,7 +95,7 @@ Cart
 
             <div class="lg:col-span-1">
                 <div id="cart-summary-container">
-                    <x-common.cart-summary 
+                    <x-common.cart-summary
                         :subtotal="$subtotal ?? 0"
                         :shipping="10000"
                         :tax="($subtotal ?? 0) * 0.01"
@@ -124,7 +124,7 @@ Cart
         @endif
     </div>
 </div>
-<x-common.voucher-dialog 
+<x-common.voucher-dialog
     :vouchers="$availableVouchers ?? []"
     :selectedVoucher="$selectedVoucher ?? null"
     :isOpen="true"
