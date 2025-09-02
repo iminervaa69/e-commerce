@@ -148,4 +148,20 @@ class User extends Authenticatable
     {
         return $this->stores()->wherePivot('role', $role)->get();
     }
+
+        /**
+     * Get the user's addresses
+     */
+    public function addresses()
+    {
+        return $this->hasMany(Address::class)->orderBy('is_default', 'desc')->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Get the user's default address
+     */
+    public function defaultAddress()
+    {
+        return $this->hasOne(Address::class)->where('is_default', true);
+    }
 }

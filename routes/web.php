@@ -24,6 +24,9 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 | Public Routes (No authentication required)
 |--------------------------------------------------------------------------
 */
+Route::get('/checkout2', function () {
+    return view('frontend.pages.checkout.index2');
+})->name('checkout2');
 
 // Landing page - accessible to everyone
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -65,6 +68,22 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::post('/validate-voucher', [CartController::class, 'validateVoucherByCode'])->name('validate-voucher');
 
     
+});
+
+Route::middleware(['auth'])->group(function () {
+    // Dedicated address management page
+    Route::get('/addresses', [AddressController::class, 'index'])->name('addresses.index');
+    
+    // API routes for AJAX calls (used in checkout and address management)
+    Route::get('/api/addresses', [AddressController::class, 'getAddresses'])->name('addresses.get');
+    Route::post('/api/addresses', [AddressController::class, 'store'])->name('addresses.store');
+    Route::get('/api/addresses/{id}', [AddressController::class, 'show'])->name('addresses.show');
+    Route::put('/api/addresses/{id}', [AddressController::class, 'update'])->name('addresses.update');
+    Route::delete('/api/addresses/{id}', [AddressController::class, 'destroy'])->name('addresses.destroy');
+    Route::patch('/api/addresses/{id}/default', [AddressController::class, 'setDefault'])->name('addresses.setDefault');
+    
+    // Location data
+    Route::get('/api/provinces', [AddressController::class, 'getProvinces'])->name('addresses.provinces');
 });
 
 /*
@@ -115,6 +134,9 @@ Route::middleware('auth')->prefix('site')->name('site.')->group(function () {
     // API route for variants
     Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants']);
 });
+
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -176,3 +198,4 @@ Route::get('/ewallet/failed', [PaymentController::class, 'ewalletFailed'])->name
 Route::post('/xendit/webhook', [PaymentController::class, 'handleWebhook'])
     ->name('xendit.webhook')
     ->withoutMiddleware(['auth', 'verified']);
+    
