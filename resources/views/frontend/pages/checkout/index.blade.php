@@ -9,6 +9,7 @@ Checkout
 @endpush
 
 @section('content')
+<!-- Add this section BEFORE your shipping address section in checkout.blade.php -->
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 pt-16 pb-8">
     <div class="container mx-auto px-4">
         <div class="mb-8">
@@ -52,17 +53,27 @@ Checkout
                         <div class="p-6 border-b dark:border-gray-700">
                             <div class="flex items-center justify-between">
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Billing Information</h2>
-                                <label class="flex items-center text-sm cursor-pointer">
-                                    <input type="checkbox"
-                                           id="same-as-shipping"
-                                           class="text-blue-600 mr-2 rounded focus:ring-blue-500"
-                                           onchange="toggleBillingAddress(this)">
-                                    <span class="text-gray-700 dark:text-gray-300">Same as shipping</span>
-                                </label>
+                                <button type="button"
+                                        onclick="openBillingModal()"
+                                        class="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                    Add New Billing Info
+                                </button>
                             </div>
                         </div>
-                        <div class="p-6" id="billing-address-section">
-                        </div>
+                            <div class="p-6">
+                                <x-common.billing-selector
+                                    name="billing_information"
+                                    :selected-id="old('billing_information_id')"
+                                    api-endpoint="{{ route('billing.get') }}"
+                                    empty-title="No billing information"
+                                    add-button-text="Add Billing Information"
+                                    :billing-information="$billingInfo ?? []"
+                                    modal-id="billing-modal"
+                                    :show-add-button="true" />
+                            </div>
                     </div>
 
                     <!-- Payment Method Section -->
@@ -71,7 +82,105 @@ Checkout
                             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Payment Method</h2>
                         </div>
                         <div class="p-6">
-                            <x-common.payment-method/>
+                            <div class="space-y-4" x-data="{ paymentMethod: 'card' }">
+                            <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300"
+                                :class="paymentMethod === 'card' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'">
+                                <input type="radio" name="payment_method" value="card" x-model="paymentMethod" class="text-blue-600">
+                                <div class="ml-3">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm0 2h12v8H4V6z"/>
+                                        </svg>
+                                        <span class="font-medium text-gray-900 dark:text-white">Credit/Debit Card</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">Visa, Mastercard, etc.</p>
+                                </div>
+                            </label>
+
+                             <input type="hidden" name="_token" value="{{ csrf_token() }}" id="csrf-token">
+
+                            <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300"
+                                :class="paymentMethod === 'ewallet' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600'">
+                                <input type="radio" name="payment_method" value="ewallet" x-model="paymentMethod" class="text-blue-600">
+                                <div class="ml-3">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                                        </svg>
+                                        <span class="font-medium text-gray-900 dark:text-white">E-Wallet</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">GCash, ShopeePay, GrabPay, etc.</p>
+                                </div>
+                            </label>
+
+                            <!-- Card Form -->
+                            <div x-show="paymentMethod === 'card'" x-transition class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <form id="card-form" class="space-y-4">
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Card Number</label>
+                                            <input type="text" id="card-number" placeholder="1234 5678 9012 3456" value="4000 0000 0000 0002"
+                                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Expiry Date</label>
+                                            <input type="text" id="card-expiry" placeholder="MM/YY" value="12/25"
+                                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300" >
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">CVV</label>
+                                            <input type="text" id="card-cvv" placeholder="123" value=111
+                                                class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cardholder Name</label>
+                                        <input type="text" id="card-name" placeholder="John Doe" value="Rizal"
+                                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-300">
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div x-show="paymentMethod === 'ewallet'" x-transition class="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500 bg-white dark:bg-gray-800" data-channel="PH_GCASH">
+                                        <div class="text-center">
+                                            <div class="w-8 h-8 mx-auto mb-2 bg-blue-600 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-xs font-bold">G</span>
+                                            </div>
+                                            <div class="text-blue-600 font-semibold">GCash</div>
+                                        </div>
+                                    </button>
+                                    <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500 bg-white dark:bg-gray-800" data-channel="PH_SHOPEEPAY">
+                                        <div class="text-center">
+                                            <div class="w-8 h-8 mx-auto mb-2 bg-orange-600 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-xs font-bold">S</span>
+                                            </div>
+                                            <div class="text-orange-600 font-semibold">ShopeePay</div>
+                                        </div>
+                                    </button>
+                                    <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500 bg-white dark:bg-gray-800" data-channel="ID_OVO">
+                                        <div class="text-center">
+                                            <div class="w-8 h-8 mx-auto mb-2 bg-purple-600 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-xs font-bold">O</span>
+                                            </div>
+                                            <div class="text-purple-600 font-semibold">OVO</div>
+                                        </div>
+                                    </button>
+                                    <button type="button" class="ewallet-btn p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors duration-300 focus:border-blue-500 bg-white dark:bg-gray-800" data-channel="ID_DANA">
+                                        <div class="text-center">
+                                            <div class="w-8 h-8 mx-auto mb-2 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span class="text-white text-xs font-bold">D</span>
+                                            </div>
+                                            <div class="text-blue-500 font-semibold">DANA</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         </div>
                     </div>
                 </div>
@@ -104,141 +213,140 @@ Checkout
     modal-id="address-modal"
     :show-default-checkbox="true" />
 
+<!-- Billing Modal -->
+<x-common.billing-modal
+    modal-id="billing-modal"
+    :show-default-checkbox="true" />
+
 <!-- Hidden Payment Form -->
 <form id="payment-form" style="display: none;">
-    <input type="hidden" name="_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="_token" value="{{ csrf_token() }}" id>
     <input type="hidden" name="amount" id="payment-amount">
     <input type="hidden" name="token_id" id="payment-token">
     <input type="hidden" name="authentication_id" id="payment-auth">
     <input type="hidden" name="channel_code" id="payment-channel">
     <input type="hidden" name="shipping_address_id" id="shipping-address-id">
-    <input type="hidden" name="billing_address_id" id="billing-address-id">
+    <input type="hidden" name="billing_information_id" id="billing-information-id">
 </form>
 @endsection
 
 @push('scripts')
-<script>
-// Set Xendit public key globally for checkout.js to use
-window.xenditPublicKey = '{{ config("xendivel.public_key") }}';
+    <script>
+    // Xendit configuration
+    window.xenditPublicKey = '{{ config("xendivel.public_key") }}';
 
-// Initialize Xendit directly (backup in case checkout.js doesn't load)
-if (typeof Xendit !== 'undefined') {
-    Xendit.setPublishableKey('{{ config("xendivel.public_key") }}');
-}
+    if (typeof Xendit !== 'undefined') {
+        Xendit.setPublishableKey('{{ config("xendivel.public_key") }}');
+    }
 
-// Function to toggle billing address section
-function toggleBillingAddress(checkbox) {
-    const billingSection = document.getElementById('billing-address-section');
-    const shippingAddressInputs = document.querySelectorAll('input[name="shipping_address"]:checked');
-
-    if (checkbox.checked) {
-        // Hide billing address section and copy shipping address
-        billingSection.style.opacity = '0.5';
-        billingSection.style.pointerEvents = 'none';
-
-        // Copy shipping address value to billing
-        if (shippingAddressInputs.length > 0) {
-            const shippingValue = shippingAddressInputs[0].value;
-            const billingInput = document.querySelector(`input[name="billing_address"][value="${shippingValue}"]`);
-            if (billingInput) {
-                billingInput.checked = true;
-            }
+    // Bridge function for order summary component
+    function handleCheckoutSubmit(component) {
+        if (window.checkoutManager) {
+            const event = { preventDefault: () => {} };
+            window.checkoutManager.handleCheckout(event);
+        } else {
+            console.error('CheckoutManager not initialized');
+            component.isProcessing = false;
         }
-
-        console.log('Billing same as shipping enabled');
-    } else {
-        // Show billing address section
-        billingSection.style.opacity = '1';
-        billingSection.style.pointerEvents = 'auto';
-
-        console.log('Billing same as shipping disabled');
-    }
-}
-
-// Custom checkout handler
-function handleCheckoutSubmit(component) {
-    console.log('Starting checkout process...');
-
-    // Get selected addresses
-    const shippingAddress = document.querySelector('input[name="shipping_address"]:checked')?.value;
-    const billingAddress = document.querySelector('input[name="billing_address"]:checked')?.value;
-    const sameAsShipping = document.getElementById('same-as-shipping')?.checked;
-
-    // Validation
-    if (!shippingAddress) {
-        alert('Please select a shipping address');
-        component.isProcessing = false;
-        return;
     }
 
-    if (!sameAsShipping && !billingAddress) {
-        alert('Please select a billing address');
-        component.isProcessing = false;
-        return;
+    // Payment form logger function
+    function logPaymentForm() {
+        // console.log('=== PAYMENT FORM VALUES ===');
+        
+        const paymentForm = document.getElementById('payment-form');
+        if (!paymentForm) {
+            console.error('Payment form not found!');
+            return;
+        }
+        
+        // const inputs = {
+        //     token: document.querySelector('input[name="_token"]'),
+        //     amount: document.getElementById('payment-amount'),
+        //     tokenId: document.getElementById('payment-token'),
+        //     authId: document.getElementById('payment-auth'),
+        //     channelCode: document.getElementById('payment-channel'),
+        //     shippingAddressId: document.getElementById('shipping-address-id'),
+        //     billingInfoId: document.getElementById('billing-information-id')
+        // };
+        
+        // Log each input value
+        Object.entries(inputs).forEach(([key, input]) => {
+            console.log(`${key}:`, input?.value || 'EMPTY/NOT FOUND');
+        });
+        
+        console.log('=== END PAYMENT FORM VALUES ===');
     }
 
-    // Set form values
-    document.getElementById('shipping-address-id').value = shippingAddress;
-    document.getElementById('billing-address-id').value = sameAsShipping ? shippingAddress : billingAddress;
+    // Address/Billing refresh functions
+    function refreshAddressSelector() {
+        console.log('Refreshing address selector...');
+        // Implement actual refresh logic if needed
+    }
 
-    // Simulate checkout process
-    setTimeout(() => {
-        component.isProcessing = false;
+    function refreshBillingSelector() {
+        console.log('Refreshing billing selector...');
+        // Implement actual refresh logic if needed  
+    }
 
-        // Here you would normally:
-        // 1. Process payment with Xendit
-        // 2. Submit the form to your backend
-        // 3. Redirect to success page
+    // Prevent multiple initializations
+    let checkoutPageInitialized = false;
 
-        alert(`Checkout completed!\nShipping: ${shippingAddress}\nBilling: ${sameAsShipping ? shippingAddress : billingAddress}`);
-
-        // Example: Submit to backend
-        // document.getElementById('payment-form').submit();
-
-        // Example: Redirect to success
-        // window.location.href = '/checkout/success';
-
-    }, 2000);
-
-    // Refresh totals periodically
-    setInterval(function() {
-        fetch('/checkout/refresh-totals', {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update displayed totals
-                updateCheckoutDisplay(data.data);
+    // Main initialization
+    document.addEventListener('DOMContentLoaded', function() {
+        if (checkoutPageInitialized) {
+            console.log('Checkout already initialized, skipping...');
+            return;
+        }
+        
+        checkoutPageInitialized = true;
+        console.log('Checkout page initialized');
+        console.log('Xendit available:', typeof Xendit !== 'undefined');
+        
+        // Log payment form on load
+        // setTimeout(() => logPaymentForm(), 500); // Delay to ensure DOM is ready
+        
+        // Listen for address/billing selection changes (use event delegation)
+        document.addEventListener('change', function(e) {
+            if (e.target.name === 'shipping_address' || e.target.name === 'billing_information') {
+                console.log('Selection changed:', e.target.name, '=', e.target.value);
             }
         });
-    }, 300000); // Refresh every 5 minutes
-}
-
-// Basic initialization
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Checkout page initialized');
-    console.log('Xendit available:', typeof Xendit !== 'undefined');
-    console.log('AddressManager available:', typeof AddressManager !== 'undefined');
-
-    // Listen for address selection changes
-    document.addEventListener('change', function(e) {
-        if (e.target.name === 'shipping_address' || e.target.name === 'billing_address') {
-            console.log('Address selection changed:', e.target.name, e.target.value);
-
-            // Auto-sync billing address if "same as shipping" is checked
-            if (e.target.name === 'shipping_address' && document.getElementById('same-as-shipping')?.checked) {
-                const billingInput = document.querySelector(`input[name="billing_address"][value="${e.target.value}"]`);
-                if (billingInput) {
-                    billingInput.checked = true;
-                }
-            }
+        
+        // Listen for address events
+        ['address-saved', 'address-updated'].forEach(eventType => {
+            document.addEventListener(eventType, function(e) {
+                console.log(`${eventType}:`, e.detail.address);
+                refreshAddressSelector();
+            });
+        });
+        
+        // Listen for billing events
+        ['billing-saved', 'billing-updated'].forEach(eventType => {
+            document.addEventListener(eventType, function(e) {
+                console.log(`${eventType}:`, e.detail.billing);
+                refreshBillingSelector();
+            });
+        });
+        
+        // Watch for payment form changes
+        const paymentForm = document.getElementById('payment-form');
+        if (paymentForm) {
+            paymentForm.querySelectorAll('input').forEach(input => {
+                input.addEventListener('change', function() {
+                    console.log(`Payment form field changed: ${this.name || this.id} = ${this.value}`);
+                });
+            });
         }
     });
-});
-</script>
-<script src="{{ asset('js/checkout.js') }}"></script>
-@endpush
+
+    // Make functions globally available for debugging
+    window.logPaymentForm = logPaymentForm;
+    window.logCheckoutData = function() {
+        if (window.checkoutManager) {
+            window.checkoutManager.logAllCheckoutData();
+        }
+    };
+    </script>
+    <script src="{{ asset('js/checkout.js') }}"></script>
+    @endpush

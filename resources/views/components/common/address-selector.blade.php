@@ -32,53 +32,66 @@
         </div>
 
         <!-- Address List -->
-        <template x-for="address in addresses" :key="address.id">
+        @foreach($addresses as $address)
             <label class="block">
                 <div class="flex items-start p-4 border-2 rounded-lg cursor-pointer transition-colors duration-300"
-                     :class="selectedAddress === address.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'">
+                     :class="selectedAddress === {{ $address['id'] ?? $address->id }} ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'">
                     <input type="radio"
                            name="{{ $name }}"
-                           :value="address.id"
+                           value="{{ $address['id'] ?? $address->id }}"
                            x-model="selectedAddress"
-                           class="mt-1 text-blue-600">
+                           class="mt-1 text-blue-600"
+                           @if($selectedId == ($address['id'] ?? $address->id)) checked @endif>
                     <div class="ml-3 flex-1">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-2">
-                                <h3 class="font-medium text-gray-900 dark:text-white" x-text="address.label || 'Home'"></h3>
-                                <span x-show="address.is_default" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                                    Default
-                                </span>
+                                <h3 class="font-medium text-gray-900 dark:text-white">
+                                    {{ ($address['label'] ?? $address->label) ?? 'Home' }}
+                                </h3>
+                                @if(($address['is_default'] ?? $address->is_default ?? false))
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                                        Default
+                                    </span>
+                                @endif
                             </div>
                             <div class="flex items-center space-x-2" x-show="!isLoading">
                                 <button type="button" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
-                                        @click.stop="editAddress(address.id)"
-                                        :disabled="isEditingAddress === address.id">
-                                    <span x-show="isEditingAddress !== address.id">Edit</span>
-                                    <span x-show="isEditingAddress === address.id">Loading...</span>
+                                        @click.stop="editAddress({{ $address['id'] ?? $address->id }})"
+                                        :disabled="isEditingAddress === {{ $address['id'] ?? $address->id }}">
+                                    <span x-show="isEditingAddress !== {{ $address['id'] ?? $address->id }}">Edit</span>
+                                    <span x-show="isEditingAddress === {{ $address['id'] ?? $address->id }}">Loading...</span>
                                 </button>
                                 <button type="button" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm"
-                                        @click.stop="deleteAddress(address.id)"
-                                        :disabled="isDeletingAddress === address.id">
-                                    <span x-show="isDeletingAddress !== address.id">Delete</span>
-                                    <span x-show="isDeletingAddress === address.id">Deleting...</span>
+                                        @click.stop="deleteAddress({{ $address['id'] ?? $address->id }})"
+                                        :disabled="isDeletingAddress === {{ $address['id'] ?? $address->id }}">
+                                    <span x-show="isDeletingAddress !== {{ $address['id'] ?? $address->id }}">Delete</span>
+                                    <span x-show="isDeletingAddress === {{ $address['id'] ?? $address->id }}">Deleting...</span>
                                 </button>
                             </div>
                         </div>
                         <div class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            <p x-text="address.recipient_name" class="font-medium text-gray-900 dark:text-white"></p>
-                            <p x-text="address.phone" class="text-gray-600 dark:text-gray-400"></p>
-                            <p class="mt-1">
-                                <span x-text="address.street_address"></span><br>
-                                <span x-text="`${address.district}, ${address.city}`"></span><br>
-                                <span x-text="`${address.province} ${address.postal_code}`"></span><br>
-                                <span x-text="address.country || 'Indonesia'"></span>
+                            <p class="font-medium text-gray-900 dark:text-white">
+                                {{ $address['recipient_name'] ?? $address->recipient_name }}
                             </p>
-                            <p x-show="address.address_notes" x-text="address.address_notes" class="text-xs text-gray-500 dark:text-gray-500 mt-1 italic"></p>
+                            <p class="text-gray-600 dark:text-gray-400">
+                                {{ $address['phone'] ?? $address->phone }}
+                            </p>
+                            <p class="mt-1">
+                                {{ $address['street_address'] ?? $address->street_address }}, 
+                                {{ ($address['district'] ?? $address->district) }} {{ ($address['city'] ?? $address->city) }}, 
+                                {{ ($address['province'] ?? $address->province) }} {{ ($address['postal_code'] ?? $address->postal_code) }}, 
+                                {{ ($address['country'] ?? $address->country) ?? 'Indonesia' }}
+                            </p>
+                            @if(($address['address_notes'] ?? $address->address_notes ?? false))
+                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-1 italic">
+                                    {{ $address['address_notes'] ?? $address->address_notes }}
+                                </p>
+                            @endif
                         </div>
                     </div>
                 </div>
             </label>
-        </template>
+        @endforeach
 
         <!-- No addresses state -->
         <div x-show="!isLoading && addresses.length === 0" class="text-center py-8">
@@ -102,17 +115,19 @@
         </div>
 
         <!-- Add New Address Button (when there are addresses) -->
-        <div x-show="!isLoading && addresses.length > 0" class="mt-4">
-            @if($showAddButton)
-                <button type="button" class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        @click="openAddressModal()">
-                    <svg class="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-                    </svg>
-                    {{ $addButtonText }}
-                </button>
-            @endif
-        </div>
+        @if(count($addresses) > 0)
+            <div class="mt-4">
+                @if($showAddButton)
+                    <button type="button" class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            @click="openAddressModal()">
+                        <svg class="-ml-1 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ $addButtonText }}
+                    </button>
+                @endif
+            </div>
+        @endif
     </div>
 
     <!-- Success/Error Messages -->

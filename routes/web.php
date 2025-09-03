@@ -8,6 +8,7 @@ use App\Http\Controllers\User\CheckoutController;
 use App\Http\Controllers\User\PaymentController;
 use App\Http\Controllers\User\AddressController;
 use App\Http\Controllers\User\WebhookController;
+use App\Http\Controllers\User\BillingInformationController;
 
 // Admin Controllers (separate namespace)
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -145,6 +146,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/api/provinces', [AddressController::class, 'getProvinces'])->name('provinces');
     });
 
+    // BILLING INFORMATION MANAGEMENT - Only for authenticated users
+    Route::prefix('billing')->name('billing.')->group(function () {
+        // Main billing page
+        Route::get('/', [BillingInformationController::class, 'index'])->name('index');
+        // API routes for AJAX requests
+        Route::get('/api', [BillingInformationController::class, 'getBillingInfo'])->name('get');
+        Route::post('/api', [BillingInformationController::class, 'store'])->name('store');
+        Route::get('/api/{id}', [BillingInformationController::class, 'show'])->name('show');
+        Route::put('/api/{id}', [BillingInformationController::class, 'update'])->name('update');
+        Route::delete('/api/{id}', [BillingInformationController::class, 'destroy'])->name('destroy');
+        Route::post('/api/{id}/set-default', [BillingInformationController::class, 'setDefault'])->name('set-default');
+    });
+
+
+
     // USER PROFILE & ORDERS
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/', [UserController::class, 'profile'])->name('index');
@@ -238,5 +254,5 @@ Route::redirect('/site/{any}', '/admin')->where('any', '.*');
 
 // 404 handler for undefined routes
 Route::fallback(function () {
-    return view('youtube.com');
+    return view('errors.404');
 });

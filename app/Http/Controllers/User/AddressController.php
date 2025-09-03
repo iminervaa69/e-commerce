@@ -29,7 +29,7 @@ class AddressController extends Controller
     }
 
     /**
-     * Get addresses for AJAX requests (used in checkout components)
+     * Get addresses for AJAX requests (used in checkout components) shipping_address_id
      */
     public function getAddresses(Request $request)
     {

@@ -19,11 +19,12 @@ use App\Models\Store;
 use App\Models\User;
 use Carbon\Carbon;
 use App\Models\Address;
+use App\Models\BillingInformation;
 
 class CheckoutController extends Controller
 {
     /**
-     * Enhanced checkout index with session validation and refresh
+     * Enhanced checkout index with session validation and refresh shipping_address_id
      */
     public function index()
     {
@@ -31,10 +32,10 @@ class CheckoutController extends Controller
         $checkoutData = session('checkout_items');
 
         // === DETAILED LOGGING FOR CHECKOUT DATA ===
-        Log::info('=== CHECKOUT DATA DEBUG ===');
-        Log::info('Raw session data:', ['data' => $checkoutData]);
-        Log::info('JSON formatted:', ['json' => json_encode($checkoutData, JSON_PRETTY_PRINT)]);
-        Log::info('Data type:', ['type' => gettype($checkoutData)]);
+        // Log::info('=== CHECKOUT DATA DEBUG ===');
+        // Log::info('Raw session data:', ['data' => $checkoutData]);
+        // Log::info('JSON formatted:', ['json' => json_encode($checkoutData, JSON_PRETTY_PRINT)]);
+        // Log::info('Data type:', ['type' => gettype($checkoutData)]);
 
         if (is_array($checkoutData)) {
             Log::info('Array keys:', ['keys' => array_keys($checkoutData)]);
@@ -49,18 +50,18 @@ class CheckoutController extends Controller
         }
 
         // Additional session info
-        Log::info('Session ID:', ['session_id' => session()->getId()]);
-        Log::info('User info:', [
-            'user_id' => auth()->id(),
-            'user_email' => auth()->user()->email ?? 'guest'
-        ]);
-        Log::info('=== END CHECKOUT DATA DEBUG ===');
+        // Log::info('Session ID:', ['session_id' => session()->getId()]);
+        // Log::info('User info:', [
+        //     'user_id' => auth()->id(),
+        //     'user_email' => auth()->user()->email ?? 'guest'
+        // ]);
+        // Log::info('=== END CHECKOUT DATA DEBUG ===');
 
         if (!$checkoutData) {
             return redirect()->route('cart.index')->with('error', 'No items selected for checkout');
         }
 
-        // Check session expiration and refresh if needed
+        // Check session expiration and refresh if needed shipping_address_id
         $createdAt = Carbon::parse($checkoutData['created_at']);
         $minutesElapsed = $createdAt->diffInMinutes(now());
 
@@ -86,16 +87,24 @@ class CheckoutController extends Controller
         Cache::forget('user_addresses_' . auth()->id());
         // Get user addresses with caching
         $userAddresses = $this->getUserAddresses();
+        
+        // Add this before calling getBillingInfo()
+        Cache::forget('billing_info_' . auth()->id());
+        // Get billing info with caching
+        $billingInfo = $this->getBillingInfo();
 
         // Enhanced address debugging
         Log::info('=== START ADDRESS DATA DEBUG ===');
-        Log::info('User authenticated:', ['is_auth' => auth()->check()]);
-        Log::info('User ID:', ['user_id' => auth()->id()]);
-        Log::info('Addresses data type:', ['type' => gettype($userAddresses)]);
-        Log::info('Addresses class:', ['class' => get_class($userAddresses)]);
-        Log::info('Addresses count:', ['count' => $userAddresses->count()]);
-        Log::info('Addresses isEmpty:', ['isEmpty' => $userAddresses->isEmpty()]);
-        Log::info('Addresses JSON:', ['json' => json_encode($userAddresses, JSON_PRETTY_PRINT)]);
+        // Log::info('User authenticated:', ['is_auth' => auth()->check()]);
+        // Log::info('User ID:', ['user_id' => auth()->id()]);
+        // Log::info('Addresses data type:', ['type' => gettype($userAddresses)]);
+        // Log::info('Addresses class:', ['class' => get_class($userAddresses)]);
+        // Log::info('Addresses count:', ['count' => $userAddresses->count()]);
+        // Log::info('Addresses isEmpty:', ['isEmpty' => $userAddresses->isEmpty()]);
+        // Log::info('Addresses JSON:', ['json' => json_encode($userAddresses, JSON_PRETTY_PRINT)]);
+        // Log::info('Billing info data type:', ['json' => json_encode($billingInfo, JSON_PRETTY_PRINT)]);
+        
+
 
         // // If collection is not empty, log each address
         // if (!$userAddresses->isEmpty()) {
@@ -120,8 +129,64 @@ class CheckoutController extends Controller
             'total' => $checkoutData['total'],
             'userAddresses' => $userAddresses,
             'selectedVoucher' => $checkoutData['voucher'] ?? null,
-            'lastUpdated' => $checkoutData['created_at']
+            'lastUpdated' => $checkoutData['created_at'],
+            'billingInfo' => $billingInfo
         ]);
+    }
+
+
+    private function getBillingInfo()
+    {
+        Log::info('=== getBillingInfo() START ===');
+
+        if (!auth()->user()) {
+            Log::info('No authenticated user found');
+            return collect();
+        }
+
+        Log::info('User found:', ['user_id' => auth()->id()]);
+
+        $cacheKey = 'billing_info_' . auth()->id();
+        Log::info('Cache key:', ['key' => $cacheKey]);
+
+        // Check if data exists in cache
+        if (Cache::has($cacheKey)) {
+            Log::info('Cache HIT - returning cached data');
+            $cachedData = Cache::get($cacheKey);
+            if ($cachedData) {
+                Log::info('Cached data type:', ['type' => gettype($cachedData)]);
+            }
+        } else {
+            Log::info('Cache MISS - querying database');
+        }
+
+        $billingInfo = Cache::remember(
+            $cacheKey,
+            600,
+            function () {
+                Log::info('Executing database query for billing info');
+
+                // Fix: Build the query properly and execute it correctly
+                $result = BillingInformation::where('user_id', auth()->id())
+                    ->orderBy('is_default', 'desc')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+                Log::info('Query result count:', ['count' => $result->count()]);
+                Log::info('Query result type:', ['type' => gettype($result)]);
+
+                return $result;
+            }
+        );
+
+        Log::info('Final billing info result:', [
+            'type' => gettype($billingInfo),
+            'count' => $billingInfo->count(),
+            'isEmpty' => $billingInfo->isEmpty()
+        ]);
+
+        Log::info('=== getBillingInfo() END ===');
+        return $billingInfo;
     }
 
     /**
