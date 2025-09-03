@@ -21,6 +21,7 @@ class Address extends Model
         'postal_code',
         'street_address',
         'address_notes',
+        'is_active',
         'is_default',
         'latitude',
         'longitude'
@@ -28,6 +29,7 @@ class Address extends Model
 
     protected $casts = [
         'is_default' => 'boolean',
+        'is_active' => 'boolean',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8'
     ];
@@ -73,7 +75,7 @@ class Address extends Model
         $address = $this->recipient_name . "\n";
         $address .= $this->phone . "\n";
         $address .= $this->full_address;
-        
+
         if ($this->address_notes) {
             $address .= "\nNote: " . $this->address_notes;
         }
@@ -136,7 +138,7 @@ class Address extends Model
                 $nextAddress = static::where('user_id', $address->user_id)
                                     ->where('id', '!=', $address->id)
                                     ->first();
-                
+
                 if ($nextAddress) {
                     $nextAddress->update(['is_default' => true]);
                 }

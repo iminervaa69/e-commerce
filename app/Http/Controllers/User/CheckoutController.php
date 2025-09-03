@@ -4,6 +4,7 @@ namespace App\Http\Controllers\User;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -21,70 +22,416 @@ use App\Models\Address;
 
 class CheckoutController extends Controller
 {
+    /**
+     * Enhanced checkout index with session validation and refresh
+     */
     public function index()
     {
-        $user = Auth::user();
-        $sessionId = Session::getId();
+        // Get checkout data from session (prepared by cart's proceedToCheckout)
+        $checkoutData = session('checkout_items');
 
-        // Get cart items for authenticated user or guest
-        $cartItems = $this->getCartItems($user, $sessionId);
-        
-        if ($cartItems->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Your cart is empty');
+        // === DETAILED LOGGING FOR CHECKOUT DATA ===
+        Log::info('=== CHECKOUT DATA DEBUG ===');
+        Log::info('Raw session data:', ['data' => $checkoutData]);
+        Log::info('JSON formatted:', ['json' => json_encode($checkoutData, JSON_PRETTY_PRINT)]);
+        Log::info('Data type:', ['type' => gettype($checkoutData)]);
+
+        if (is_array($checkoutData)) {
+            Log::info('Array keys:', ['keys' => array_keys($checkoutData)]);
+
+            // Log each key-value pair separately for better readability
+            foreach ($checkoutData as $key => $value) {
+                Log::info("Key: {$key}", [
+                    'value' => $value,
+                    'type' => gettype($value)
+                ]);
+            }
         }
 
-        // Validate cart items before checkout
-        $validationResult = $this->validateCartItems($cartItems);
-        if (!$validationResult['valid']) {
-            return redirect()->route('cart.index')
-                ->with('error', 'Some items in your cart are no longer available: ' . $validationResult['message']);
+        // Additional session info
+        Log::info('Session ID:', ['session_id' => session()->getId()]);
+        Log::info('User info:', [
+            'user_id' => auth()->id(),
+            'user_email' => auth()->user()->email ?? 'guest'
+        ]);
+        Log::info('=== END CHECKOUT DATA DEBUG ===');
+
+        if (!$checkoutData) {
+            return redirect()->route('cart.index')->with('error', 'No items selected for checkout');
         }
 
-        // Load product variants with relationships
-        $cartItems->load(['productVariant.product', 'productVariant.product.store']);
+        // Check session expiration and refresh if needed
+        $createdAt = Carbon::parse($checkoutData['created_at']);
+        $minutesElapsed = $createdAt->diffInMinutes(now());
 
-        // Group items by store for multi-vendor checkout
-        $itemsByStore = $cartItems->groupBy(function($item) {
-            return $item->productVariant->product->store_id ?? 0;
-        });
+        if ($minutesElapsed > 30) {
+            session()->forget('checkout_items');
+            return redirect()->route('cart.index')->with('error', 'Checkout session expired. Please select items again.');
+        }
 
-        $userAddresses = $user ? $user->addresses : collect();
+        // Re-validate items if session is getting old (15+ minutes)
+        if ($minutesElapsed > 15) {
+            $refreshResult = $this->refreshCheckoutData($checkoutData);
+
+            if (!$refreshResult['success']) {
+                session()->forget('checkout_items');
+                return redirect()->route('cart.index')->with('error', $refreshResult['message']);
+            }
+
+            $checkoutData = $refreshResult['data'];
+            session(['checkout_items' => $checkoutData]);
+        }
+
+        // Add this before calling getUserAddresses()
+        Cache::forget('user_addresses_' . auth()->id());
+        // Get user addresses with caching
+        $userAddresses = $this->getUserAddresses();
+
+        // Enhanced address debugging
+        Log::info('=== START ADDRESS DATA DEBUG ===');
+        Log::info('User authenticated:', ['is_auth' => auth()->check()]);
+        Log::info('User ID:', ['user_id' => auth()->id()]);
+        Log::info('Addresses data type:', ['type' => gettype($userAddresses)]);
+        Log::info('Addresses class:', ['class' => get_class($userAddresses)]);
+        Log::info('Addresses count:', ['count' => $userAddresses->count()]);
+        Log::info('Addresses isEmpty:', ['isEmpty' => $userAddresses->isEmpty()]);
+        Log::info('Addresses JSON:', ['json' => json_encode($userAddresses, JSON_PRETTY_PRINT)]);
+
+        // // If collection is not empty, log each address
+        // if (!$userAddresses->isEmpty()) {
+        //     foreach ($userAddresses as $index => $address) {
+        //         Log::info("Address {$index}:", [
+        //             'address_data' => $address->toArray(),
+        //             'address_id' => $address->id ?? 'no_id',
+        //             'is_default' => $address->is_default ?? 'no_default',
+        //             'is_active' => $address->is_active ?? 'no_active'
+        //         ]);
+        //     }
+        // }
+        Log::info('=== END ADDRESS DATA DEBUG ===');
+
+        // Extract data for view
+        return view('frontend.pages.checkout.index', [
+            'selectedItems' => $checkoutData['items'],
+            'subtotal' => $checkoutData['subtotal'],
+            'shipping' => $checkoutData['shipping'],
+            'tax' => $checkoutData['tax'],
+            'discount' => $checkoutData['discount'],
+            'total' => $checkoutData['total'],
+            'userAddresses' => $userAddresses,
+            'selectedVoucher' => $checkoutData['voucher'] ?? null,
+            'lastUpdated' => $checkoutData['created_at']
+        ]);
+    }
+
+    /**
+     * Get user addresses with caching
+     */
+    private function getUserAddresses()
+    {
+        Log::info('=== getUserAddresses() START ===');
+
+        if (!auth()->user()) {
+            Log::info('No authenticated user found');
+            return collect();
+        }
+
+        Log::info('User found:', ['user_id' => auth()->id()]);
+
+        $cacheKey = 'user_addresses_' . auth()->id();
+        Log::info('Cache key:', ['key' => $cacheKey]);
+
+        // Check if data exists in cache
+        if (Cache::has($cacheKey)) {
+            Log::info('Cache HIT - returning cached data');
+            $cachedData = Cache::get($cacheKey);
+            Log::info('Cached data:', ['data' => $cachedData->toArray()]);
+        } else {
+            Log::info('Cache MISS - querying database');
+        }
+
+        $addresses = Cache::remember(
+            $cacheKey,
+            600,
+            function () {
+                Log::info('Executing database query for addresses');
+
+                $query = auth()->user()->addresses()
+                    ->where('is_active', true)
+                    ->orderBy('is_default', 'desc')
+                    ->orderBy('created_at', 'desc');
+
+                Log::info('Query SQL:', ['sql' => $query->toSql()]);
+                Log::info('Query bindings:', ['bindings' => $query->getBindings()]);
+
+                $result = $query->get();
+
+                return $result;
+            }
+        );
+
+        // Log::info('Final addresses result:', [
+        //     'type' => gettype($addresses),
+        //     'count' => $addresses->count(),
+        //     'data' => $addresses->toArray()
+        // ]);
+        Log::info('=== getUserAddresses() END ===');
+
+        return $addresses;
+    }
+
+    /**
+     * Refresh checkout data to ensure current prices and availability
+     */
+    private function refreshCheckoutData($oldCheckoutData)
+    {
+        try {
+            // Get current cart items based on stored cart_item_ids
+            $cartItemIds = collect($oldCheckoutData['items'])->pluck('cart_item_id');
+            $currentCartItems = CartItem::whereIn('id', $cartItemIds)
+                ->with(['productVariant.product.store'])
+                ->get();
+
+            if ($currentCartItems->isEmpty()) {
+                return [
+                    'success' => false,
+                    'message' => 'Selected items are no longer in your cart'
+                ];
+            }
+
+            // Validate current items
+            $validationResult = $this->validateItemsForCheckout($currentCartItems);
+            if (!$validationResult['valid']) {
+                return [
+                    'success' => false,
+                    'message' => 'Some items are no longer available: ' . $validationResult['message']
+                ];
+            }
+
+            // Prepare fresh checkout data
+            $refreshedData = $this->prepareCheckoutData($currentCartItems);
+
+            // Preserve applied voucher if still valid
+            if ($oldCheckoutData['voucher']) {
+                $voucherValid = $this->isVoucherValid($oldCheckoutData['voucher'], $refreshedData['subtotal']);
+                if ($voucherValid) {
+                    $refreshedData['voucher'] = $oldCheckoutData['voucher'];
+                    $refreshedData['discount'] = $this->calculateVoucherDiscount(
+                        $oldCheckoutData['voucher'],
+                        $refreshedData['subtotal']
+                    );
+                    $refreshedData['total'] = $refreshedData['subtotal'] +
+                                           $refreshedData['shipping'] +
+                                           $refreshedData['tax'] -
+                                           $refreshedData['discount'];
+                } else {
+                    session()->forget('applied_voucher');
+                }
+            }
+
+            return [
+                'success' => true,
+                'data' => $refreshedData
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Checkout data refresh error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Unable to refresh checkout data'
+            ];
+        }
+    }
+
+    /**
+     * Validate items before checkout (enhanced version)
+     */
+    private function validateItemsForCheckout($items)
+    {
+        $issues = [];
+
+        foreach ($items as $item) {
+            $variant = $item->productVariant;
+
+            // Check if variant exists and is active
+            if (!$variant || !$variant->is_active) {
+                $issues[] = "Product '" . ($item->productVariant->product->name ?? 'Unknown') . "' is no longer available";
+                continue;
+            }
+
+            // Check if product exists and is active
+            if (!$variant->product || !$variant->product->is_active) {
+                $issues[] = "Product '" . ($variant->product->name ?? 'Unknown') . "' is no longer available";
+                continue;
+            }
+
+            // Check stock
+            if ($variant->stock < $item->quantity) {
+                $issues[] = "Only {$variant->stock} units available for '{$variant->product->name}' (you selected {$item->quantity})";
+                continue;
+            }
+
+            // Check price changes (alert if more than 10% difference)
+            $currentPrice = $variant->price;
+            $cartPrice = $item->price_when_added;
+            if ($currentPrice != $cartPrice) {
+                $priceChange = abs($currentPrice - $cartPrice) / $cartPrice;
+                if ($priceChange > 0.10) {
+                    $issues[] = "Price changed for '{$variant->product->name}': " .
+                            number_format($cartPrice) . " → " . number_format($currentPrice);
+                }
+            }
+        }
+
+        return [
+            'valid' => empty($issues),
+            'message' => implode('; ', $issues)
+        ];
+    }
+
+    /**
+     * Prepare checkout data structure (enhanced version)
+     */
+    private function prepareCheckoutData($items)
+    {
+        $checkoutItems = [];
+        $subtotal = 0;
+
+        foreach ($items as $item) {
+            $variant = $item->productVariant;
+            $product = $variant->product;
+            $store = $product->store;
+
+            $itemTotal = $item->quantity * $item->price_when_added;
+            $subtotal += $itemTotal;
+
+            $checkoutItems[] = [
+                'cart_item_id' => $item->id,
+                'product_variant_id' => $item->product_variant_id,
+                'product_id' => $product->id,
+                'store_id' => $store->id ?? null,
+                'name' => $product->name,
+                'variant_name' => $variant->name ?? null,
+                'variant_attributes' => $variant->attributes ?? [],
+                'price' => $item->price_when_added,
+                'current_price' => $variant->price,
+                'quantity' => $item->quantity,
+                'total' => $itemTotal,
+                'image' => $variant->image ?? $product->featured_image,
+                'store_name' => $store->name ?? 'Default Store',
+                'in_stock' => $variant->stock >= $item->quantity,
+                'stock_available' => $variant->stock,
+            ];
+        }
 
         // Calculate totals
-        $subtotal = $cartItems->sum(function($item) {
-            return $item->quantity * $item->price_when_added;
-        });
+        $itemsByStore = collect($checkoutItems)->groupBy('store_id');
+        $shipping = $this->calculateShippingForItems($itemsByStore);
+        $tax = $subtotal * 0.11; // Updated to match your existing 11% tax rate
 
-        $shipping = $this->calculateShipping($itemsByStore);
-        $tax = $this->calculateTax($subtotal);
-        $discount = $this->calculateDiscount($subtotal);
+        // Apply voucher if exists
+        $selectedVoucher = session('applied_voucher');
+        $discount = 0;
+
+        if ($selectedVoucher) {
+            $discount = $this->calculateVoucherDiscount($selectedVoucher, $subtotal);
+
+            // Validate voucher is still applicable
+            if (!$this->isVoucherValid($selectedVoucher, $subtotal)) {
+                session()->forget('applied_voucher');
+                $selectedVoucher = null;
+                $discount = 0;
+            }
+        }
 
         $total = $subtotal + $shipping + $tax - $discount;
 
-        // Prepare selected items for the view
-        $selectedItems = $cartItems->map(function($item) {
-            return [
-                'id' => $item->id,
-                'product_variant_id' => $item->product_variant_id,
-                'name' => $item->productVariant->product->name,
-                'variant_name' => $item->productVariant->name,
-                'price' => $item->price_when_added,
-                'quantity' => $item->quantity,
-                'total' => $item->quantity * $item->price_when_added,
-                'store_name' => $item->productVariant->product->store->name ?? 'Default Store',
-            ];
-        })->toArray();
-
-        return view('frontend.pages.checkout.index', compact(
-            'selectedItems',
-            'subtotal', 
-            'shipping',
-            'tax',
-            'discount',
-            'total',
-            'userAddresses' // Add this line
-        ));
+        return [
+            'items' => $checkoutItems,
+            'subtotal' => $subtotal,
+            'shipping' => $shipping,
+            'tax' => $tax,
+            'discount' => $discount,
+            'total' => $total,
+            'voucher' => $selectedVoucher,
+            'created_at' => now()->toISOString(),
+        ];
     }
+
+    private function calculateShippingForItems($itemsByStore)
+    {
+        // Simple calculation: 5000 per store
+        return $itemsByStore->count() * 5000;
+    }
+
+    private function calculateVoucherDiscount($voucher, $subtotal)
+    {
+        if (is_array($voucher)) {
+            $discountAmount = $voucher['discount_amount'] ?? 0;
+            $discountType = $voucher['discount_type'] ?? 'fixed';
+        } else {
+            $discountAmount = $voucher->discount_amount ?? 0;
+            $discountType = $voucher->discount_type ?? 'fixed';
+        }
+
+        if ($discountType === 'percentage') {
+            return $subtotal * ($discountAmount / 100);
+        }
+
+        return $discountAmount;
+    }
+
+    private function isVoucherValid($voucher, $subtotal)
+    {
+        if (is_array($voucher)) {
+            $minAmount = $voucher['minimum_amount'] ?? null;
+        } else {
+            $minAmount = $voucher->minimum_amount ?? null;
+        }
+
+        if ($minAmount && $subtotal < $minAmount) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * API endpoint to refresh checkout totals (for AJAX calls)
+     */
+    public function refreshTotals(Request $request)
+    {
+        $checkoutData = session('checkout_items');
+
+        if (!$checkoutData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No checkout session found'
+            ], 400);
+        }
+
+        $refreshResult = $this->refreshCheckoutData($checkoutData);
+
+        if ($refreshResult['success']) {
+            session(['checkout_items' => $refreshResult['data']]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'subtotal' => $refreshResult['data']['subtotal'],
+                    'shipping' => $refreshResult['data']['shipping'],
+                    'tax' => $refreshResult['data']['tax'],
+                    'discount' => $refreshResult['data']['discount'],
+                    'total' => $refreshResult['data']['total'],
+                    'items' => $refreshResult['data']['items']
+                ]
+            ]);
+        }
+
+        return response()->json($refreshResult, 400);
+    }
+
+    // Keep all your existing payment processing methods unchanged...
 
     public function processCardPayment(Request $request)
     {
@@ -129,9 +476,20 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            // Get and validate cart
-            $sessionId = Session::getId();
-            $cartItems = $this->getCartItems($user, $sessionId);
+            // Use checkout session data instead of recalculating from cart
+            $checkoutData = session('checkout_items');
+            if (!$checkoutData) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Checkout session expired'
+                ], 400);
+            }
+
+            // Get cart items based on checkout data
+            $cartItemIds = collect($checkoutData['items'])->pluck('cart_item_id');
+            $cartItems = CartItem::whereIn('id', $cartItemIds)
+                ->with(['productVariant.product.store'])
+                ->get();
 
             if ($cartItems->isEmpty()) {
                 return response()->json([
@@ -140,7 +498,7 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            // Re-validate cart items and calculate server-side totals
+            // Final validation
             $cartValidation = $this->validateCartItems($cartItems);
             if (!$cartValidation['valid']) {
                 return response()->json([
@@ -149,13 +507,8 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            // Calculate expected amount server-side (never trust client)
-            $expectedAmount = $this->calculateCartTotal($cartItems);
-            
-            // Add amount to validated data (server-calculated)
-            $validated['amount'] = $expectedAmount;
-
-            // Validate phone number format and normalize
+            // Use checkout session total (server-calculated)
+            $validated['amount'] = $checkoutData['total'];
             $validated['phone'] = $this->normalizePhoneNumber($validated['phone']);
 
             // Reserve inventory before payment
@@ -187,8 +540,9 @@ class CheckoutController extends Controller
                 // Create orders (one per store)
                 $orders = $this->createOrdersFromCart($cartItems, $transaction);
 
-                // Clear cart
-                $this->clearCart($user, $sessionId);
+                // Clear cart and checkout session
+                $this->clearCart($user, session()->getId());
+                session()->forget('checkout_items');
 
                 DB::commit();
 
@@ -273,8 +627,19 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            $sessionId = Session::getId();
-            $cartItems = $this->getCartItems($user, $sessionId);
+            // Use checkout session data
+            $checkoutData = session('checkout_items');
+            if (!$checkoutData) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Checkout session expired'
+                ], 400);
+            }
+
+            $cartItemIds = collect($checkoutData['items'])->pluck('cart_item_id');
+            $cartItems = CartItem::whereIn('id', $cartItemIds)
+                ->with(['productVariant.product.store'])
+                ->get();
 
             if ($cartItems->isEmpty()) {
                 return response()->json([
@@ -283,7 +648,7 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            // Validate cart and calculate server-side amount
+            // Validate cart and use session total
             $cartValidation = $this->validateCartItems($cartItems);
             if (!$cartValidation['valid']) {
                 return response()->json([
@@ -292,7 +657,7 @@ class CheckoutController extends Controller
                 ], 400);
             }
 
-            $validated['amount'] = $this->calculateCartTotal($cartItems);
+            $validated['amount'] = $checkoutData['total'];
             $validated['phone'] = $this->normalizePhoneNumber($validated['phone']);
 
             // Reserve inventory
@@ -331,7 +696,7 @@ class CheckoutController extends Controller
                 ]);
             } else {
                 $this->releaseInventoryReservation($cartItems);
-                
+
                 $transaction->update([
                     'status' => 'failed',
                     'xendit_response' => $paymentResult['response']
@@ -363,7 +728,7 @@ class CheckoutController extends Controller
         }
     }
 
-    // New validation methods
+    // Keep all your existing helper methods...
 
     private function validateCartItems($cartItems)
     {
@@ -371,7 +736,7 @@ class CheckoutController extends Controller
 
         foreach ($cartItems as $item) {
             $variant = $item->productVariant;
-            
+
             // Check if variant still exists and is active
             if (!$variant || !$variant->is_active) {
                 $issues[] = "Product variant '" . ($item->productVariant->name ?? 'Unknown') . "' is no longer available";
@@ -394,9 +759,9 @@ class CheckoutController extends Controller
             $currentPrice = $variant->price;
             $cartPrice = $item->price_when_added;
             $priceChange = abs($currentPrice - $cartPrice) / $cartPrice;
-            
+
             if ($priceChange > 0.10) {
-                $issues[] = "Price of '{$variant->product->name}' has changed from " . 
+                $issues[] = "Price of '{$variant->product->name}' has changed from " .
                            number_format($cartPrice) . " to " . number_format($currentPrice);
             }
         }
@@ -411,7 +776,7 @@ class CheckoutController extends Controller
     {
         // Remove all non-digits
         $phone = preg_replace('/\D/', '', $phone);
-        
+
         // Convert to +62 format
         if (strpos($phone, '62') === 0) {
             return '+' . $phone;
@@ -427,7 +792,7 @@ class CheckoutController extends Controller
         try {
             foreach ($cartItems as $item) {
                 $variant = $item->productVariant;
-                
+
                 // Check current stock
                 if ($variant->stock < $item->quantity) {
                     return [
@@ -471,8 +836,6 @@ class CheckoutController extends Controller
         Log::info('Inventory reservation released for failed payment');
     }
 
-    // Existing helper methods (keeping the same)...
-    
     private function getCartItems($user = null, $sessionId = null)
     {
         $query = CartItem::with(['productVariant.product.store']);
@@ -560,7 +923,6 @@ class CheckoutController extends Controller
         return Transaction::create($transactionData);
     }
 
-    // ADD new method to validate if user owns addresses:
     private function validateUserAddresses($user, $shippingAddressId, $billingAddressId)
     {
         $shippingAddress = $user->addresses()->find($shippingAddressId);
@@ -586,20 +948,21 @@ class CheckoutController extends Controller
             'billing_address' => $billingAddress
         ];
     }
+
     private function processXenditCardPayment($validatedData, $transaction)
     {
         try {
-            $xenditClient = new \Xendit\XenditSdkPhp\Client(config('xendit.secret_key'));
-            
+            $xenditClient = new \Xendit\XenditSdkPhp\Client(config('xendivel.secret_key'));
+
             $chargeRequest = new \Xendit\XenditSdkPhp\Payment\ChargeRequest([
                 'reference_id' => $transaction->reference_id,
                 'amount' => $validatedData['amount'],
                 'currency' => 'IDR',
                 // ... other Xendit parameters
             ]);
-            
+
             $response = $xenditClient->payment->createCharge($chargeRequest);
-            
+
             return [
                 'success' => $response->status === 'SUCCEEDED',
                 'xendit_id' => $response->id,
@@ -607,23 +970,19 @@ class CheckoutController extends Controller
                 'response' => $response->toArray()
             ];
         } catch (\Exception $e) {
-            // Handle actual Xendit errors
+            Log::error('Xendit card payment error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Payment processing failed',
+                'response' => ['error' => $e->getMessage()]
+            ];
         }
     }
-    
-    public function webhook(Request $request)
-    {
-        // Verify webhook signature
-        // Update transaction status
-        // Handle inventory and order updates
-    }
-
-    // Add reserved_stock column to product_variants table
-
 
     private function processXenditEwalletPayment($validatedData, $transaction)
     {
         try {
+            // Mock implementation - replace with actual Xendit SDK calls
             return [
                 'success' => true,
                 'xendit_id' => 'ewc_' . Str::random(20),
@@ -637,7 +996,7 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Xendit e-wallet payment error: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'message' => 'Payment processing failed',
@@ -701,6 +1060,44 @@ class CheckoutController extends Controller
         }
 
         $query->delete();
+    }
+
+    public function webhook(Request $request)
+    {
+        // Verify webhook signature
+        // Update transaction status
+        // Handle inventory and order updates
+        Log::info('Xendit webhook received', $request->all());
+
+        // Basic webhook handling - expand based on your needs
+        try {
+            $xenditId = $request->input('id');
+            $status = $request->input('status');
+
+            $transaction = Transaction::where('xendit_id', $xenditId)->first();
+
+            if ($transaction) {
+                $transaction->update([
+                    'status' => $status === 'SUCCEEDED' ? 'completed' : 'failed',
+                    'xendit_response' => $request->all()
+                ]);
+
+                if ($status === 'SUCCEEDED') {
+                    // Clear cart for successful e-wallet payments
+                    $user = User::find($transaction->user_id);
+                    if ($user) {
+                        $this->clearCart($user, null);
+                        session()->forget('checkout_items');
+                    }
+                }
+            }
+
+            return response()->json(['status' => 'success']);
+
+        } catch (\Exception $e) {
+            Log::error('Webhook processing error: ' . $e->getMessage());
+            return response()->json(['status' => 'error'], 500);
+        }
     }
 
     public function success(Request $request)

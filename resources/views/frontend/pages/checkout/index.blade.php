@@ -24,7 +24,7 @@ Checkout
                         <div class="p-6 border-b dark:border-gray-700">
                             <div class="flex items-center justify-between">
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Shipping Address</h2>
-                                <button type="button" 
+                                <button type="button"
                                         onclick="openAddressModal()"
                                         class="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium transition-colors duration-200">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,10 +35,14 @@ Checkout
                             </div>
                         </div>
                         <div class="p-6">
-                            <x-common.address-selector 
+                            <x-common.address-selector
                                 name="shipping_address"
+                                :selected-id="old('shipping_address_id')"
+                                api-endpoint="{{ route('addresses.get') }}"
                                 empty-title="No shipping addresses"
                                 add-button-text="Add Shipping Address"
+                                :addresses="$userAddresses"
+                                modal-id="address-modal"
                                 :show-add-button="true" />
                         </div>
                     </div>
@@ -49,8 +53,8 @@ Checkout
                             <div class="flex items-center justify-between">
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Billing Information</h2>
                                 <label class="flex items-center text-sm cursor-pointer">
-                                    <input type="checkbox" 
-                                           id="same-as-shipping" 
+                                    <input type="checkbox"
+                                           id="same-as-shipping"
                                            class="text-blue-600 mr-2 rounded focus:ring-blue-500"
                                            onchange="toggleBillingAddress(this)">
                                     <span class="text-gray-700 dark:text-gray-300">Same as shipping</span>
@@ -58,11 +62,6 @@ Checkout
                             </div>
                         </div>
                         <div class="p-6" id="billing-address-section">
-                            <x-common.address-selector 
-                                name="billing_address"
-                                empty-title="No billing addresses"
-                                add-button-text="Add Billing Address"
-                                :show-add-button="true" />
                         </div>
                     </div>
 
@@ -72,7 +71,7 @@ Checkout
                             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Payment Method</h2>
                         </div>
                         <div class="p-6">
-                            <x-common.payment-method/>  
+                            <x-common.payment-method/>
                         </div>
                     </div>
                 </div>
@@ -100,8 +99,10 @@ Checkout
     </div>
 </div>
 
-<!-- Address Modal Component -->
-<x-common.address-modal />
+<!-- Address Modal -->
+<x-common.address-modal
+    modal-id="address-modal"
+    :show-default-checkbox="true" />
 
 <!-- Hidden Payment Form -->
 <form id="payment-form" style="display: none;">
@@ -125,42 +126,16 @@ if (typeof Xendit !== 'undefined') {
     Xendit.setPublishableKey('{{ config("xendivel.public_key") }}');
 }
 
-// Global function to open address modal
-function openAddressModal(address = null, type = 'shipping') {
-    console.log('Opening address modal for:', type, address);
-    
-    // You can implement different approaches here:
-    
-    // 1. If using a simple modal toggle
-    const modal = document.getElementById('address-modal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        // Set modal type if needed
-        modal.setAttribute('data-type', type);
-    }
-    
-    // 2. If using Alpine.js event system
-    window.dispatchEvent(new CustomEvent('open-address-modal', {
-        detail: { address: address, type: type }
-    }));
-    
-    // 3. If using Livewire
-    // Livewire.emit('openAddressModal', address, type);
-    
-    // 4. If using a global Alpine store
-    // Alpine.store('modal').openAddressModal(address, type);
-}
-
 // Function to toggle billing address section
 function toggleBillingAddress(checkbox) {
     const billingSection = document.getElementById('billing-address-section');
     const shippingAddressInputs = document.querySelectorAll('input[name="shipping_address"]:checked');
-    
+
     if (checkbox.checked) {
         // Hide billing address section and copy shipping address
         billingSection.style.opacity = '0.5';
         billingSection.style.pointerEvents = 'none';
-        
+
         // Copy shipping address value to billing
         if (shippingAddressInputs.length > 0) {
             const shippingValue = shippingAddressInputs[0].value;
@@ -169,13 +144,13 @@ function toggleBillingAddress(checkbox) {
                 billingInput.checked = true;
             }
         }
-        
+
         console.log('Billing same as shipping enabled');
     } else {
         // Show billing address section
         billingSection.style.opacity = '1';
         billingSection.style.pointerEvents = 'auto';
-        
+
         console.log('Billing same as shipping disabled');
     }
 }
@@ -183,64 +158,87 @@ function toggleBillingAddress(checkbox) {
 // Custom checkout handler
 function handleCheckoutSubmit(component) {
     console.log('Starting checkout process...');
-    
+
     // Get selected addresses
     const shippingAddress = document.querySelector('input[name="shipping_address"]:checked')?.value;
     const billingAddress = document.querySelector('input[name="billing_address"]:checked')?.value;
     const sameAsShipping = document.getElementById('same-as-shipping')?.checked;
-    
+
     // Validation
     if (!shippingAddress) {
         alert('Please select a shipping address');
         component.isProcessing = false;
         return;
     }
-    
+
     if (!sameAsShipping && !billingAddress) {
         alert('Please select a billing address');
         component.isProcessing = false;
         return;
     }
-    
+
     // Set form values
     document.getElementById('shipping-address-id').value = shippingAddress;
     document.getElementById('billing-address-id').value = sameAsShipping ? shippingAddress : billingAddress;
-    
+
     // Simulate checkout process
     setTimeout(() => {
         component.isProcessing = false;
-        
+
         // Here you would normally:
         // 1. Process payment with Xendit
         // 2. Submit the form to your backend
         // 3. Redirect to success page
-        
+
         alert(`Checkout completed!\nShipping: ${shippingAddress}\nBilling: ${sameAsShipping ? shippingAddress : billingAddress}`);
-        
+
         // Example: Submit to backend
         // document.getElementById('payment-form').submit();
-        
+
         // Example: Redirect to success
         // window.location.href = '/checkout/success';
-        
+
     }, 2000);
+
+    // Refresh totals periodically
+    setInterval(function() {
+        fetch('/checkout/refresh-totals', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update displayed totals
+                updateCheckoutDisplay(data.data);
+            }
+        });
+    }, 300000); // Refresh every 5 minutes
 }
 
 // Basic initialization
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Checkout page initialized');
     console.log('Xendit available:', typeof Xendit !== 'undefined');
-    console.log('CheckoutManager available:', typeof CheckoutManager !== 'undefined');
-    
-    // Listen for address selection changes to enable/disable checkout
+    console.log('AddressManager available:', typeof AddressManager !== 'undefined');
+
+    // Listen for address selection changes
     document.addEventListener('change', function(e) {
         if (e.target.name === 'shipping_address' || e.target.name === 'billing_address') {
             console.log('Address selection changed:', e.target.name, e.target.value);
-            // You can add validation logic here
+
+            // Auto-sync billing address if "same as shipping" is checked
+            if (e.target.name === 'shipping_address' && document.getElementById('same-as-shipping')?.checked) {
+                const billingInput = document.querySelector(`input[name="billing_address"][value="${e.target.value}"]`);
+                if (billingInput) {
+                    billingInput.checked = true;
+                }
+            }
         }
     });
 });
 </script>
 <script src="{{ asset('js/checkout.js') }}"></script>
-{{-- <script src="{{ asset('js/checkout-components.js') }}"></script> --}}
 @endpush

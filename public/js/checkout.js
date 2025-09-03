@@ -67,24 +67,24 @@ class CheckoutManager {
     validatePhoneNumber(input) {
         const phoneRegex = /^(\+62|62|0)[0-9]{9,13}$/;
         const value = input.value.trim();
-        
-        this.showFieldValidation(input, phoneRegex.test(value), 
+
+        this.showFieldValidation(input, phoneRegex.test(value),
             'Please enter a valid Indonesian phone number (e.g., +62812345678 or 0812345678)');
     }
 
     validateNameField(input) {
         const nameRegex = /^[a-zA-Z\s]{2,50}$/;
         const value = input.value.trim();
-        
-        this.showFieldValidation(input, nameRegex.test(value), 
+
+        this.showFieldValidation(input, nameRegex.test(value),
             'Name must contain only letters and spaces (2-50 characters)');
     }
 
     validateEmailField(input) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const value = input.value.trim();
-        
-        this.showFieldValidation(input, emailRegex.test(value), 
+
+        this.showFieldValidation(input, emailRegex.test(value),
             'Please enter a valid email address');
     }
 
@@ -105,7 +105,7 @@ class CheckoutManager {
             input.classList.add('border-green-500');
         } else {
             input.classList.add('border-red-500');
-            
+
             const errorDiv = document.createElement('div');
             errorDiv.className = 'validation-error text-red-500 text-sm mt-1';
             errorDiv.textContent = errorMessage;
@@ -122,7 +122,7 @@ class CheckoutManager {
         // Add selection to clicked button
         const button = event.currentTarget;
         button.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
-        
+
         this.selectedEwalletChannel = button.getAttribute('data-channel');
     }
 
@@ -133,7 +133,7 @@ class CheckoutManager {
         const cardName = document.getElementById('card-name')?.value || '';
 
         const isValid = cardNumber.length >= 13 && cardExpiry && cardCvv.length >= 3 && cardName.length >= 2;
-        
+
         const checkoutBtn = document.getElementById('checkout-btn');
         if (checkoutBtn) {
             checkoutBtn.disabled = !isValid;
@@ -158,7 +158,7 @@ class CheckoutManager {
 
         // Check payment method specific validations
         const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
-        
+
         if (paymentMethod === 'card') {
             if (!this.validateCardForm()) {
                 errors.push('Please complete all card information');
@@ -201,7 +201,7 @@ class CheckoutManager {
         }
 
         const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-        
+
         if (paymentMethod === 'card') {
             await this.processCardPayment();
         } else if (paymentMethod === 'ewallet') {
@@ -230,8 +230,8 @@ class CheckoutManager {
             console.log('Starting card payment process...');
 
             // Step 1: Create card token (amount now calculated server-side)
-            const tokenData = await this.createCardToken(cardData); 
-            
+            const tokenData = await this.createCardToken(cardData);
+
             if (!tokenData.id) {
                 this.showError('Failed to process card information');
                 return;
@@ -264,10 +264,10 @@ class CheckoutManager {
     async handle3DSAuthentication(tokenData, billingData) {
         console.log('3DS authentication required');
         console.log('Authentication URL:', tokenData.payer_authentication_url);
-        
+
         // Show user that 3DS is required
         this.showInfo('3D Secure authentication required. Please complete the authentication in the popup window.');
-        
+
         // Open popup for 3DS authentication
         const popup = window.open(
             tokenData.payer_authentication_url,
@@ -279,7 +279,7 @@ class CheckoutManager {
             this.showError('Please enable popups for 3D Secure authentication');
             return;
         }
-        
+
         // Simple approach: Check if popup is closed and then try payment
         const checkClosed = setInterval(async () => {
             if (popup.closed) {
@@ -292,7 +292,7 @@ class CheckoutManager {
 
                 console.log('Token ID:', tokenData.id);
                 console.log('Authentication ID:', authenticationId);
-                
+
                 try {
                     // Process payment - if 3DS failed, the backend will handle the error
                     await this.submitPayment(tokenData.id, authenticationId, billingData);
@@ -430,6 +430,7 @@ class CheckoutManager {
         }
     }
 
+
     // UPDATED: Create card token without amount (amount calculated server-side)
     createCardToken(cardData) {
         return new Promise((resolve, reject) => {
@@ -439,7 +440,7 @@ class CheckoutManager {
             }
 
             const billingData = this.getBillingData();
-            
+
             if (!billingData) {
                 reject(new Error('Billing information is required for token creation'));
                 return;
@@ -447,16 +448,16 @@ class CheckoutManager {
 
             // Format phone number for Xendit
             let formattedPhone = billingData.phone.replace(/\D/g, '');
-            
+
             if (!formattedPhone.startsWith('62')) {
                 if (formattedPhone.startsWith('0')) {
                     formattedPhone = formattedPhone.substring(1);
                 }
                 formattedPhone = '62' + formattedPhone;
             }
-            
+
             formattedPhone = '+' + formattedPhone;
-            
+
             // Token creation without amount (Xendit will validate with backend)
             const tokenData = {
                 amount: 1, // Minimal amount for token creation, actual amount handled server-side
@@ -495,11 +496,11 @@ class CheckoutManager {
             return null;
         }
 
-        return { 
-            first_name: firstName, 
-            last_name: lastName, 
-            email: email.toLowerCase(), 
-            phone 
+        return {
+            first_name: firstName,
+            last_name: lastName,
+            email: email.toLowerCase(),
+            phone
         };
     }
 
@@ -569,7 +570,7 @@ class CheckoutManager {
         // Create notification element
         const notification = document.createElement('div');
         notification.className = `checkout-notification fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md`;
-        
+
         switch (type) {
             case 'success':
                 notification.className += ' bg-green-500 text-white';
@@ -586,7 +587,7 @@ class CheckoutManager {
                 <div class="flex-1">
                     <p class="text-sm font-medium">${message.replace(/\n/g, '<br>')}</p>
                 </div>
-                <button onclick="this.parentElement.parentElement.remove()" 
+                <button onclick="this.parentElement.parentElement.remove()"
                         class="ml-2 text-white hover:text-gray-200">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>

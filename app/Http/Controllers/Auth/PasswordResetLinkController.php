@@ -1,4 +1,6 @@
+
 <?php
+// Fixed PasswordResetLinkController.php
 
 namespace App\Http\Controllers\Auth;
 
@@ -15,7 +17,7 @@ class PasswordResetLinkController extends Controller
      */
     public function create(): View
     {
-        return view('auth.forgot-password');
+        return view('frontend.auth.forgot-password');
     }
 
     /**

@@ -12,7 +12,7 @@
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border dark:border-gray-700 sticky top-6">
     <div class="p-6">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Order Summary</h2>
-        
+
         <div id="selected-totals-section" class="hidden mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,33 +46,33 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- All Items Summary -->
         <div class="space-y-3 mb-6">
             <div class="flex justify-between items-center">
                 <span class="text-gray-600 dark:text-gray-400">All Items Subtotal</span>
                 <span class="text-gray-900 dark:text-white">Rp{{ number_format($subtotal, 2, ',', '.') }}</span>
             </div>
-            
+
             <div class="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Shipping</span>
                 <span>Rp{{ number_format($shipping, 2, ',', '.') }}</span>
             </div>
-            
+
             <div class="flex justify-between text-gray-600 dark:text-gray-400">
                 <span>Tax</span>
                 <span>Rp{{ number_format($tax, 2, ',', '.') }}</span>
             </div>
-            
+
             @if($discount > 0)
             <div class="flex justify-between text-green-600 dark:text-green-400">
                 <span>Discount</span>
                 <span>-Rp{{ number_format($discount, 2, ',', '.') }}</span>
             </div>
             @endif
-            
+
             <hr class="dark:border-gray-600">
-            
+
             <div class="flex justify-between text-lg font-bold text-gray-900 dark:text-white">
                 <span>Total (All Items)</span>
                 <span>Rp{{ number_format($total, 2, ',', '.') }}</span>
@@ -84,7 +84,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Voucher & Promo
             </label>
-            
+
             @if($selectedVoucher)
                 <!-- Selected Voucher Display -->
                 <div class="flex items-center justify-between p-3 border border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg dark:border-cyan-400">
@@ -104,14 +104,14 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 ml-2">
-                        <button 
+                        <button
                             type="button"
                             class="text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-200 text-sm font-medium"
                             onclick="openVoucherDialog()"
                         >
                             Change
                         </button>
-                        <button 
+                        <button
                             type="button"
                             class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
                             onclick="removeSelectedVoucher()"
@@ -124,7 +124,7 @@
                 </div>
             @else
                 <!-- Voucher Selection Button -->
-                <button 
+                <button
                     type="button"
                     class="w-full flex items-center justify-between p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-cyan-500 dark:hover:border-cyan-400 transition-colors"
                     onclick="openVoucherDialog()"

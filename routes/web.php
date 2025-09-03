@@ -1,201 +1,242 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\StoreController;
-use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\ProductVariantController;
-use App\Http\Controllers\ProductImageController;
-use App\Http\Controllers\User\HomeController; 
+use App\Http\Controllers\User\HomeController;
 use App\Http\Controllers\User\CartController as UserCartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
-use GlennRaya\Xendivel\Xendivel;
 use App\Http\Controllers\User\CheckoutController;
 use App\Http\Controllers\User\PaymentController;
+use App\Http\Controllers\User\AddressController;
+use App\Http\Controllers\User\WebhookController;
 
+// Admin Controllers (separate namespace)
+use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\StoreController as AdminStoreController;
+use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\ProductVariantController;
+use App\Http\Controllers\Admin\ProductImageController;
 
-
-// New Breeze-style Auth Controllers
+// Auth Controllers
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\ConfirmablePasswordController;
 
 /*
 |--------------------------------------------------------------------------
-| Public Routes (No authentication required)
+| PUBLIC ROUTES (Guest + User accessible) address
 |--------------------------------------------------------------------------
 */
-Route::get('/checkout2', function () {
-    return view('frontend.pages.checkout.index2');
-})->name('checkout2');
 
-// Landing page - accessible to everyone
+// Homepage - accessible to everyone
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-// Public product routes (no auth required)
+// Product browsing - accessible to everyone
 Route::get('/product/{slug}', [UserProductController::class, 'show'])->name('product.show');
 Route::get('/product/{slug}/reviews', [UserProductController::class, 'reviews'])->name('product.reviews');
 
-// Category routes (public)
-Route::get('category/{slug}', [CategoryController::class, 'show'])->name('category.show');
-Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
+// Category and store browsing - accessible to everyone
+Route::get('/category/{slug}', [AdminCategoryController::class, 'show'])->name('category.show');
+Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories.index');
+Route::get('/stores', [AdminStoreController::class, 'index'])->name('stores.index');
+Route::get('/store/{slug}', [AdminStoreController::class, 'show'])->name('store.show');
 
-// Store routes (public)
-Route::get('stores', [StoreController::class, 'index'])->name('stores.index');
-Route::get('store/{slug}', [StoreController::class, 'show'])->name('store.show');
-
+// Cart routes - accessible to everyone (guest cart uses session)
 Route::prefix('cart')->name('cart.')->group(function () {
-    // Cart page
     Route::get('/', [UserCartController::class, 'index'])->name('index');
-    
-    // AJAX endpoints - REMOVED the redundant /cart/ prefix
     Route::post('/add', [UserCartController::class, 'addItem'])->name('add');
     Route::put('/update/{itemId}', [UserCartController::class, 'updateQuantity'])->name('update');
     Route::delete('/remove/{itemId}', [UserCartController::class, 'removeItem'])->name('remove');
     Route::delete('/clear', [UserCartController::class, 'clearCart'])->name('clear');
-    
-    // API endpoints for dynamic updates
     Route::get('/data', [UserCartController::class, 'getCartData'])->name('data');
     Route::get('/count', [UserCartController::class, 'getCartCount'])->name('count');
 
-    Route::delete('/remove-multiple', [CartController::class, 'removeMultiple'])->name('remove-multiple');
-    Route::post('/apply-promo', [CartController::class, 'applyPromo'])->name('apply-promo');
-    Route::get('/summary', [CartController::class, 'getSummary'])->name('summary');
-    Route::post('/move-to-wishlist/{id}', [CartController::class, 'moveToWishlist'])->name('move-to-wishlist');
-
-    Route::post('/apply-voucher', [CartController::class, 'applyVoucher'])->name('apply-voucher');
-    Route::post('/remove-voucher', [CartController::class, 'removeVoucher'])->name('remove-voucher');
-    Route::get('/available-vouchers', [CartController::class, 'getAvailableVouchers'])->name('available-vouchers');
-    Route::post('/validate-voucher', [CartController::class, 'validateVoucherByCode'])->name('validate-voucher');
-
-    
-});
-
-Route::middleware(['auth'])->group(function () {
-    // Dedicated address management page
-    Route::get('/addresses', [AddressController::class, 'index'])->name('addresses.index');
-    
-    // API routes for AJAX calls (used in checkout and address management)
-    Route::get('/api/addresses', [AddressController::class, 'getAddresses'])->name('addresses.get');
-    Route::post('/api/addresses', [AddressController::class, 'store'])->name('addresses.store');
-    Route::get('/api/addresses/{id}', [AddressController::class, 'show'])->name('addresses.show');
-    Route::put('/api/addresses/{id}', [AddressController::class, 'update'])->name('addresses.update');
-    Route::delete('/api/addresses/{id}', [AddressController::class, 'destroy'])->name('addresses.destroy');
-    Route::patch('/api/addresses/{id}/default', [AddressController::class, 'setDefault'])->name('addresses.setDefault');
-    
-    // Location data
-    Route::get('/api/provinces', [AddressController::class, 'getProvinces'])->name('addresses.provinces');
+    // Add this line:
+    Route::post('/proceed-to-checkout', [UserCartController::class, 'proceedToCheckout'])->name('proceed-to-checkout');
 });
 
 /*
 |--------------------------------------------------------------------------
-| Authentication Routes (Updated to Breeze Style)
+| AUTHENTICATION ROUTES
 |--------------------------------------------------------------------------
 */
 
-// Routes for guests only (not authenticated)
 Route::middleware('guest')->group(function () {
-    // Registration Routes
+    // Registration
     Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
     Route::post('register', [RegisteredUserController::class, 'store']);
 
-    // Login Routes  
+    // Login
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    // Password Reset
+    Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
+    Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
-// Routes for authenticated users only
-Route::middleware('auth')->group(function () {
-    // Logout Route
+/*
+|--------------------------------------------------------------------------
+| USER ROUTES (Authenticated users only)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+    // Logout
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
+    // Email Verification
+    Route::get('verify-email', EmailVerificationPromptController::class)->name('verification.notice');
+    Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('verification.verify');
+    Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('verification.send');
+
+    // Password Confirmation
+    Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])->name('password.confirm');
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
     // User Dashboard
-    Route::get('dashboard', [HomeController::class, 'index'])->name('dashboard');
-    
-    // User-specific product actions (require auth)
+    Route::get('/dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
+
+    // User-specific product actions
     Route::post('/product/{slug}/review', [UserProductController::class, 'storeReview'])->name('product.store-review');
+
+    // CHECKOUT - Only authenticated users can checkout
+    Route::prefix('checkout')->name('checkout.')->group(function () {
+        Route::get('/', [CheckoutController::class, 'index'])->name('index');
+        Route::get('/success', [CheckoutController::class, 'success'])->name('success');
+        Route::get('/failed', [CheckoutController::class, 'failed'])->name('failed');
+    });
+
+    // PAYMENT - Only authenticated users can make payments
+    Route::prefix('payment')->name('payment.')->group(function () {
+        Route::post('/card', [PaymentController::class, 'processCardPayment'])->name('card');
+        Route::post('/ewallet', [PaymentController::class, 'processEwalletPayment'])->name('ewallet');
+        Route::get('/success', [PaymentController::class, 'paymentSuccess'])->name('success');
+        Route::get('/failed', [PaymentController::class, 'paymentFailed'])->name('failed');
+    });
+
+    // E-wallet redirect URLs (for authenticated users)
+    Route::prefix('ewallet')->name('ewallet.')->group(function () {
+        Route::get('/success', [PaymentController::class, 'ewalletSuccess'])->name('success');
+        Route::get('/failed', [PaymentController::class, 'ewalletFailed'])->name('failed');
+    });
+
+    // ADDRESS MANAGEMENT - Only for authenticated users
+    Route::prefix('addresses')->name('addresses.')->group(function () {
+        Route::get('/', [AddressController::class, 'index'])->name('index');
+        Route::get('/api', [AddressController::class, 'getAddresses'])->name('get');
+        Route::post('/api', [AddressController::class, 'store'])->name('store');
+        Route::get('/api/{id}', [AddressController::class, 'show'])->name('show');
+        Route::put('/api/{id}', [AddressController::class, 'update'])->name('update');
+        Route::delete('/api/{id}', [AddressController::class, 'destroy'])->name('destroy');
+        Route::patch('/api/{id}/default', [AddressController::class, 'setDefault'])->name('setDefault');
+        Route::get('/api/provinces', [AddressController::class, 'getProvinces'])->name('provinces');
+    });
+
+    // USER PROFILE & ORDERS
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', [UserController::class, 'profile'])->name('index');
+        Route::put('/', [UserController::class, 'updateProfile'])->name('update');
+        Route::get('/orders', [UserController::class, 'orders'])->name('orders');
+        Route::get('/orders/{order}', [UserController::class, 'orderDetail'])->name('order.detail');
+    });
 });
 
 /*
 |--------------------------------------------------------------------------
-| Protected Resource Routes (Admin/Management)
+| ADMIN ROUTES (Separate login system - to be implemented later)
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth')->prefix('site')->name('site.')->group(function () {
-    // Basic CRUD routes
-    Route::resource('products', ProductController::class);
-    Route::resource('stores', StoreController::class);
-    Route::resource('categories', CategoryController::class);
+// For now, using basic auth middleware - you'll replace this with admin auth later
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+    // Admin Dashboard
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
-    // Nested resource routes
+    // Product Management
+    Route::resource('products', AdminProductController::class);
     Route::resource('products.variants', ProductVariantController::class);
     Route::resource('products.images', ProductImageController::class);
+    Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants'])
+        ->name('products.variants.api');
 
-    // API route for variants
-    Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants']);
-});
+    // Store Management
+    Route::resource('stores', AdminStoreController::class);
 
+    // Category Management
+    Route::resource('categories', AdminCategoryController::class);
 
+    // Order Management
+    Route::prefix('orders')->name('orders.')->group(function () {
+        Route::get('/', [AdminOrderController::class, 'index'])->name('index');
+        Route::get('/{order}', [AdminOrderController::class, 'show'])->name('show');
+        Route::put('/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('update-status');
+    });
 
+    // User Management
+    Route::resource('users', AdminUserController::class)->only(['index', 'show', 'edit', 'update']);
 
-/*
-|--------------------------------------------------------------------------
-| Store Role-Based Routes
-|--------------------------------------------------------------------------
-*/
-
-// Store admin routes
-Route::middleware(['auth', 'store.role:admin'])->group(function () {
-    Route::get('site/stores/{store}/edit', [StoreController::class, 'edit'])->name('stores.edit');
-    Route::put('site/stores/{store}', [StoreController::class, 'update'])->name('stores.update');
-});
-
-// Store owner routes
-Route::middleware(['auth', 'store.owner'])->group(function () {
-    Route::delete('site/stores/{store}', [StoreController::class, 'destroy'])->name('stores.destroy');
-    Route::get('site/stores/{store}/settings', [StoreController::class, 'settings'])->name('stores.settings');
-});
-
-/*
-|--------------------------------------------------------------------------
-| API Routes (Optional - for AJAX requests)
-|--------------------------------------------------------------------------
-*/
-
-Route::prefix('api')->middleware('auth')->name('api.')->group(function () {
-    Route::get('products/featured', [HomeController::class, 'getFeaturedProductsApi']);
-    Route::get('categories/popular', [HomeController::class, 'getPopularCategoriesApi']);
-    Route::get('search/products', [ProductController::class, 'search']);
+    // Reports & Analytics
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/sales', [AdminReportController::class, 'sales'])->name('sales');
+        Route::get('/products', [AdminReportController::class, 'products'])->name('products');
+        Route::get('/users', [AdminReportController::class, 'users'])->name('users');
+    });
 });
 
 /*
 |--------------------------------------------------------------------------
-| Additional Auth Routes (Password Reset, Email Verification, etc.)
+| WEBHOOK ROUTES (No authentication required)
 |--------------------------------------------------------------------------
 */
 
-// Uncomment this line if you want to add password reset, email verification, etc.
-// require __DIR__.'/auth.php';
+// Xendit webhook - must be accessible without authentication
+Route::post('/webhook/xendit', [WebhookController::class, 'xenditWebhook'])
+    ->name('webhook.xendit')
+    ->withoutMiddleware(['auth', 'verified'])
+    ->middleware('throttle:1000,1');
 
-// Checkout routes
-Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
-Route::get('/checkout/failed', [CheckoutController::class, 'failed'])->name('checkout.failed');
+/*
+|--------------------------------------------------------------------------
+| API ROUTES (For AJAX calls)
+|--------------------------------------------------------------------------
+*/
 
-// Payment processing routes
-Route::post('/payment/card', [PaymentController::class, 'processCardPayment'])->name('payment.card');
-Route::post('/payment/ewallet', [PaymentController::class, 'processEwalletPayment'])->name('payment.ewallet');
+Route::prefix('api')->name('api.')->group(function () {
+    // Public API (no auth required)
+    Route::get('/products/featured', [HomeController::class, 'getFeaturedProductsApi']);
+    Route::get('/categories/popular', [HomeController::class, 'getPopularCategoriesApi']);
+    Route::get('/search/products', [UserProductController::class, 'search']);
 
-// Success and failure pages
-Route::get('/payment/success', [PaymentController::class, 'paymentSuccess'])->name('payment.success');
-Route::get('/payment/failed', [PaymentController::class, 'paymentFailed'])->name('payment.failed');
+    // Protected API (auth required)
+    Route::middleware('auth')->group(function () {
+        Route::get('/user/orders', [UserController::class, 'getOrdersApi']);
+        Route::get('/user/profile', [UserController::class, 'getProfileApi']);
+    });
+});
 
-// E-wallet redirect URLs (required by Xendit)
-Route::get('/ewallet/success', [PaymentController::class, 'ewalletSuccess'])->name('ewallet.success');
-Route::get('/ewallet/failed', [PaymentController::class, 'ewalletFailed'])->name('ewallet.failed');
+/*
+|--------------------------------------------------------------------------
+| FALLBACK ROUTES
+|--------------------------------------------------------------------------
+*/
 
-// Xendit webhook (no auth needed)
-Route::post('/xendit/webhook', [PaymentController::class, 'handleWebhook'])
-    ->name('xendit.webhook')
-    ->withoutMiddleware(['auth', 'verified']);
-    
+// Redirect old admin routes to new structure (temporary)
+Route::redirect('/site/{any}', '/admin')->where('any', '.*');
+
+// 404 handler for undefined routes
+Route::fallback(function () {
+    return view('youtube.com');
+});

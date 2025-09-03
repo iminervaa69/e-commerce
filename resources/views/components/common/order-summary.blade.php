@@ -19,7 +19,24 @@
 @php
 // Handle both arrays and collections
 $itemsCollection = is_array($items) ? collect($items) : $items;
-$calculatedSubtotal = $itemsCollection->sum(fn($item) => ($item->price_when_added ?? $item->productVariant->price) * $item->quantity);
+
+// Calculate total using the passed subtotal or calculate from items
+if ($subtotal > 0) {
+    // Use passed subtotal from controller
+    $calculatedSubtotal = $subtotal;
+} else {
+    // Fallback calculation for items with productVariant relationship (legacy support)
+    $calculatedSubtotal = $itemsCollection->sum(function($item) {
+        if (isset($item['price']) && isset($item['quantity'])) {
+            // Controller data structure: uses 'price' key
+            return $item['price'] * $item['quantity'];
+        } else {
+            // Legacy data structure: uses productVariant relationship
+            return ($item->price_when_added ?? $item->productVariant->price) * $item->quantity;
+        }
+    });
+}
+
 $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
 @endphp
 
@@ -27,9 +44,9 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
         isProcessing: false,
         handleCheckout() {
             if (this.isProcessing) return;
-            
+
             this.isProcessing = true;
-            
+
             @if($checkoutAction)
                 // Call custom checkout action
                 {{ $checkoutAction }}(this);
@@ -41,7 +58,7 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
                 }, 2000);
             @endif
         }
-    }" 
+    }"
      class="order-summary">
 
     <!-- Loading State -->
@@ -57,9 +74,22 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
                 @foreach($itemsCollection as $item)
                 <div class="flex items-center space-x-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div class="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden flex-shrink-0">
-                        @if($item->productVariant->image ?? $item->productVariant->product->featured_image)
-                            <img src="{{ asset('storage/' . ($item->productVariant->image ?? $item->productVariant->product->featured_image)) }}"
-                                 alt="{{ $item->productVariant->product->name }}"
+                        @php
+                            // Handle different data structures for image
+                            $image = null;
+                            if (is_array($item) || is_object($item)) {
+                                $image = $item['image'] ?? $item->image ?? null;
+                            }
+
+                            // Legacy support for productVariant relationship
+                            if (!$image && isset($item->productVariant)) {
+                                $image = $item->productVariant->image ?? $item->productVariant->product->featured_image ?? null;
+                            }
+                        @endphp
+
+                        @if($image)
+                            <img src="{{ asset('storage/' . $image) }}"
+                                 alt="{{ is_array($item) ? $item['name'] : ($item->name ?? $item->productVariant->product->name) }}"
                                  class="w-full h-full object-cover">
                         @else
                             <div class="w-full h-full flex items-center justify-center text-gray-400">
@@ -71,31 +101,82 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
                     </div>
                     <div class="flex-1 min-w-0">
                         <h3 class="font-medium text-gray-900 dark:text-white truncate">
-                            {{ $item->productVariant->product->name }}
+                            @if(is_array($item))
+                                {{ $item['name'] }}
+                            @else
+                                {{ $item->name ?? $item->productVariant->product->name }}
+                            @endif
                         </h3>
-                        @if($item->productVariant->attributes && count($item->productVariant->attributes) > 0)
+
+                        @php
+                            // Handle variant attributes for both data structures
+                            $variantAttributes = null;
+                            if (is_array($item)) {
+                                $variantAttributes = $item['variant_attributes'] ?? null;
+                                $variantName = $item['variant_name'] ?? null;
+                            } else {
+                                $variantAttributes = $item->productVariant->attributes ?? null;
+                                $variantName = $item->productVariant->name ?? null;
+                            }
+                        @endphp
+
+                        @if($variantName)
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $variantName }}</p>
+                        @elseif($variantAttributes && is_array($variantAttributes) && count($variantAttributes) > 0)
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                @foreach($item->productVariant->attributes as $attr => $value)
+                                @foreach($variantAttributes as $attr => $value)
                                     {{ ucfirst($attr) }}: {{ $value }}{{ !$loop->last ? ', ' : '' }}
                                 @endforeach
                             </p>
                         @endif
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Qty: {{ $item->quantity }}</p>
+
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            Qty: {{ is_array($item) ? $item['quantity'] : $item->quantity }}
+                        </p>
+
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Store: {{ $item->productVariant->product->store->name ?? 'Unknown Store' }}
+                            Store:
+                            @if(is_array($item))
+                                {{ $item['store_name'] ?? 'Unknown Store' }}
+                            @else
+                                {{ $item->productVariant->product->store->name ?? 'Unknown Store' }}
+                            @endif
                         </p>
                     </div>
                     <div class="text-right flex-shrink-0">
-                        @if($item->productVariant->compare_at_price && $item->productVariant->compare_at_price > ($item->price_when_added ?? $item->productVariant->price))
+                        @php
+                            // Calculate item price and total for both data structures
+                            if (is_array($item)) {
+                                $itemPrice = $item['price'];
+                                $itemQuantity = $item['quantity'];
+                                $itemTotal = $item['total'] ?? ($itemPrice * $itemQuantity);
+                                $currentPrice = $item['current_price'] ?? $itemPrice;
+                            } else {
+                                $itemPrice = $item->price_when_added ?? $item->productVariant->price;
+                                $itemQuantity = $item->quantity;
+                                $itemTotal = $itemPrice * $itemQuantity;
+                                $currentPrice = $item->productVariant->price;
+                            }
+
+                            // Handle compare at price (for legacy support)
+                            $compareAtPrice = null;
+                            if (!is_array($item) && isset($item->productVariant->compare_at_price)) {
+                                $compareAtPrice = $item->productVariant->compare_at_price;
+                            }
+                        @endphp
+
+                        @if($compareAtPrice && $compareAtPrice > $itemPrice)
                             <p class="text-xs text-gray-400 line-through">
-                                Rp{{ number_format($item->productVariant->compare_at_price, 0, ',', '.') }}
+                                Rp{{ number_format($compareAtPrice, 0, ',', '.') }}
                             </p>
                         @endif
+
                         <p class="font-medium text-gray-900 dark:text-white">
-                            Rp{{ number_format(($item->price_when_added ?? $item->productVariant->price) * $item->quantity, 0, ',', '.') }}
+                            Rp{{ number_format($itemTotal, 0, ',', '.') }}
                         </p>
+
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Rp{{ number_format($item->price_when_added ?? $item->productVariant->price, 0, ',', '.') }} each
+                            Rp{{ number_format($itemPrice, 0, ',', '.') }} each
                         </p>
                     </div>
                 </div>
@@ -117,7 +198,7 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
             <div class="border-t dark:border-gray-700 pt-4 space-y-2">
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
-                    <span class="text-gray-900 dark:text-white">Rp{{ number_format($subtotal ?: $calculatedSubtotal, 0, ',', '.') }}</span>
+                    <span class="text-gray-900 dark:text-white">Rp{{ number_format($calculatedSubtotal, 0, ',', '.') }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">Shipping</span>
@@ -147,7 +228,7 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
 
             <!-- Checkout Button -->
             @if($showCheckoutButton)
-                <button x-on:click="handleCheckout()" 
+                <button x-on:click="handleCheckout()"
                         class="w-full mt-6 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         x-bind:disabled="isProcessing">
                     <template x-if="!isProcessing">

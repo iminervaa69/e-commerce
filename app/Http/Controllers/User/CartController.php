@@ -15,6 +15,11 @@ use App\Models\PromoCodeUsage;
 use App\Models\Wishlist;
 use Illuminate\Support\Number;
 
+// 11111111111 no longer available
+
+
+//status
+
 class CartController extends Controller
 {
     protected CartService $cartService;
@@ -113,7 +118,7 @@ class CartController extends Controller
                 'errors' => $e->errors(),
                 'input' => $request->all()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid data provided',
@@ -128,7 +133,7 @@ class CartController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add item to cart: ' . $e->getMessage()
@@ -140,39 +145,39 @@ class CartController extends Controller
     {
         try {
             Log::info('=== CART INDEX START ===');
-            
+
             $cartData = $this->cartService->getCartTotals();
-            
+
             $selectedVoucher = session('applied_voucher', null);
-            
+
             $subtotal = $cartData['subtotal'] ?? 0;
-            $shipping = 5000; 
+            $shipping = 5000;
             $tax = $subtotal * 0.08;
-            
+
             $userId = auth()->id();
-            
+
             Log::info('Cart Index - Basic Info:', [
                 'subtotal' => $subtotal,
                 'user_id' => $userId
             ]);
-            
+
             // Simple test first
             $totalVouchers = PromoCodes::count();
             Log::info('Cart Index - Total vouchers in DB:', ['count' => $totalVouchers]);
-            
+
             $activeVouchers = PromoCodes::where('is_active', 1)->count();
             Log::info('Cart Index - Active vouchers:', ['count' => $activeVouchers]);
-            
+
             // Get vouchers step by step
             $step1 = PromoCodes::where('is_active', 1)->get();
             Log::info('Cart Index - Step 1 (active):', ['count' => $step1->count()]);
-            
+
             $step2 = $step1->where('starts_at', '<=', now());
             Log::info('Cart Index - Step 2 (started):', ['count' => $step2->count()]);
-            
+
             $step3 = $step2->where('expires_at', '>=', now());
             Log::info('Cart Index - Step 3 (not expired):', ['count' => $step3->count()]);
-            
+
             // Final query
             $vouchersBeforeUserFilter = PromoCodes::where('is_active', 1)
                 ->where('starts_at', '<=', now())
@@ -212,12 +217,12 @@ class CartController extends Controller
                 } else {
                     $discount = $selectedVoucher->discount_amount ?? 0;
                 }
-                
+
                 if ($selectedVoucher && isset($selectedVoucher['minimum_amount'])) {
-                    $minAmount = is_array($selectedVoucher) ? 
-                        $selectedVoucher['minimum_amount'] : 
+                    $minAmount = is_array($selectedVoucher) ?
+                        $selectedVoucher['minimum_amount'] :
                         $selectedVoucher->minimum_amount;
-                        
+
                     if ($minAmount && $subtotal < $minAmount) {
                         session()->forget('applied_voucher');
                         $selectedVoucher = null;
@@ -225,7 +230,7 @@ class CartController extends Controller
                     }
                 }
             }
-            
+
             $total = $subtotal + $shipping + $tax - $discount;
 
             $cartItems = $cartData['items'] ?? collect();
@@ -236,7 +241,7 @@ class CartController extends Controller
 
             return view('frontend.pages.cart.index', compact(
                 'cartItems',
-                'subtotal', 
+                'subtotal',
                 'shipping',
                 'tax',
                 'discount',
@@ -298,7 +303,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Update quantity error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update quantity: ' . $e->getMessage()
@@ -332,7 +337,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Remove item error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to remove item: ' . $e->getMessage()
@@ -373,7 +378,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to remove multiple cart items: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to remove items from cart'
@@ -439,7 +444,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to apply promo code: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to apply promo code'
@@ -451,7 +456,7 @@ class CartController extends Controller
     {
     try {
         $userId = auth()->id();
-        
+
         $cartItems = CartItem::with([
             'productVariant.product.store',
             'productVariant.attributes'
@@ -476,10 +481,10 @@ class CartController extends Controller
             return $item->price_when_added * $item->quantity;
         });
 
-        $shipping = 9.99; 
-        $taxRate = 0.04; 
+        $shipping = 9.99;
+        $taxRate = 0.04;
         $tax = $subtotal * $taxRate;
-        
+
         // Apply voucher discount if exists
         $discount = 0;
         if (session('applied_voucher')) {
@@ -503,7 +508,7 @@ class CartController extends Controller
 
     } catch (\Exception $e) {
         Log::error('Failed to get cart summary: ' . $e->getMessage());
-        
+
         return response()->json([
             'success' => false,
             'message' => 'Failed to get cart summary'
@@ -517,7 +522,7 @@ class CartController extends Controller
     {
         try {
             $userId = auth()->id();
-            
+
             $cartItem = CartItem::where('id', $itemId)
                 ->where('user_id', $userId)
                 ->first();
@@ -551,7 +556,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to move item to wishlist: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move item to wishlist'
@@ -589,7 +594,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Get cart data error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve cart data: ' . $e->getMessage(),
@@ -619,7 +624,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Clear cart error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to clear cart: ' . $e->getMessage()
@@ -642,7 +647,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Get cart count error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'count' => 0,
@@ -660,10 +665,10 @@ class CartController extends Controller
 
             $userId = auth()->id();
             $voucherId = $request->input('voucher_id');
-            
+
             // Get the promo code
             $promoCodes = PromoCodes::find($voucherId);
-            
+
             if (!$promoCodes) {
                 return response()->json([
                     'success' => false,
@@ -738,7 +743,7 @@ class CartController extends Controller
                 'request_data' => $request->all(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to apply voucher'
@@ -768,7 +773,7 @@ class CartController extends Controller
             Log::error('Failed to remove voucher: ' . $e->getMessage(), [
                 'user_id' => auth()->id()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to remove voucher'
@@ -780,7 +785,7 @@ class CartController extends Controller
     {
         try {
             $userId = auth()->id();
-            
+
             // Get all active vouchers that user can use
             $vouchers = PromoCodes::where('is_active', true)
                 ->where('starts_at', '<=', now())
@@ -815,7 +820,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to get available vouchers: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load vouchers',
@@ -833,9 +838,9 @@ class CartController extends Controller
 
             $userId = auth()->id();
             $code = strtoupper(trim($request->input('code')));
-            
+
             $promoCodes = PromoCodes::where('code', $code)->first();
-            
+
             if (!$promoCodes) {
                 return response()->json([
                     'success' => false,
@@ -887,7 +892,7 @@ class CartController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Failed to validate voucher by code: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to validate voucher'
@@ -901,7 +906,7 @@ class CartController extends Controller
 
         if ($promoCodes->discount_type === 'percentage') {
             $discountAmount = $subtotal * ($promoCodes->discount_amount / 100);
-            
+
             if ($promoCodes->maximum_discount && $discountAmount > $promoCodes->maximum_discount) {
                 $discountAmount = $promoCodes->maximum_discount;
             }
@@ -910,6 +915,230 @@ class CartController extends Controller
         }
 
         return round($discountAmount, 2);
+    }
+    /**
+     * Transfer selected items to checkout
+     */
+    public function proceedToCheckout(Request $request)
+    {
+        $selectedItems = $request->input('selected_items', []);
+        $checkoutType = $request->input('checkout_type', 'selected'); // 'selected' or 'all'
+
+        if (empty($selectedItems) && $checkoutType === 'selected') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please select at least one item to checkout'
+            ], 400);
+        }
+
+        try {
+            // Get user cart data
+            $user = auth()->user();
+            $sessionId = session()->getId();
+            $cartData = $this->cartService->getCartTotals();
+            $allCartItems = $cartData['items'] ?? collect();
+
+            if ($allCartItems->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your cart is empty'
+                ], 400);
+            }
+
+            // Filter items based on checkout type
+            if ($checkoutType === 'all') {
+                $itemsForCheckout = $allCartItems;
+            } else {
+                // Filter only selected items
+                $itemsForCheckout = $allCartItems->whereIn('id', $selectedItems);
+            }
+
+            if ($itemsForCheckout->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid items selected for checkout'
+                ], 400);
+            }
+
+            // Validate selected items (stock, availability, etc.)
+            $validationResult = $this->validateItemsForCheckout($itemsForCheckout);
+            if (!$validationResult['valid']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validationResult['message']
+                ], 400);
+            }
+
+            // Store selected items in session for checkout
+            $checkoutData = $this->prepareCheckoutData($itemsForCheckout);
+            session(['checkout_items' => $checkoutData]);
+
+            return response()->json([
+                'success' => true,
+                'redirect_url' => route('checkout.index'),
+                'items_count' => $itemsForCheckout->count()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Checkout preparation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to prepare checkout. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Validate items before checkout
+     */
+    private function validateItemsForCheckout($items)
+    {
+        $issues = [];
+
+        foreach ($items as $item) {
+            $variant = $item->productVariant;
+
+            // Check if variant exists and is active
+            if (!$variant || !$variant->status) {
+                $issues[] = "Product '" . ($item->productVariant->product->name ?? 'Unknown') . "' is 11111111111 no longer available";
+                continue;
+            }
+
+            // Check if product exists and is active
+            if (!$variant->product || !$variant->product->status) {
+                $issues[] = "Product '" . ($variant->product->name ?? 'Unknown') . "' is no longer available";
+                continue;
+            }
+
+            // Check stock
+            if ($variant->stock < $item->quantity) {
+                $issues[] = "Only {$variant->stock} units available for '{$variant->product->name}' (you selected {$item->quantity})";
+                continue;
+            }
+
+            // Check price changes (alert if more than 10% difference)
+            $currentPrice = $variant->price;
+            $cartPrice = $item->price_when_added;
+            if ($currentPrice != $cartPrice) {
+                $priceChange = abs($currentPrice - $cartPrice) / $cartPrice;
+                if ($priceChange > 0.10) {
+                    $issues[] = "Price changed for '{$variant->product->name}': " .
+                            number_format($cartPrice) . " → " . number_format($currentPrice);
+                }
+            }
+        }
+
+        return [
+            'valid' => empty($issues),
+            'message' => implode('; ', $issues)
+        ];
+    }
+
+    /**
+     * Prepare checkout data structure
+     */
+    private function prepareCheckoutData($items)
+    {
+        $checkoutItems = [];
+        $subtotal = 0;
+
+        foreach ($items as $item) {
+            $variant = $item->productVariant;
+            $product = $variant->product;
+            $store = $product->store;
+
+            $itemTotal = $item->quantity * $item->price_when_added;
+            $subtotal += $itemTotal;
+
+            $checkoutItems[] = [
+                'cart_item_id' => $item->id,
+                'product_variant_id' => $item->product_variant_id,
+                'product_id' => $product->id,
+                'store_id' => $store->id ?? null,
+                'name' => $product->name,
+                'variant_name' => $variant->name ?? null,
+                'variant_attributes' => $variant->attributes ?? [],
+                'price' => $item->price_when_added,
+                'current_price' => $variant->price,
+                'quantity' => $item->quantity,
+                'total' => $itemTotal,
+                'image' => $variant->image ?? $product->featured_image,
+                'store_name' => $store->name ?? 'Default Store',
+                'in_stock' => $variant->stock >= $item->quantity,
+                'stock_available' => $variant->stock,
+            ];
+        }
+
+        // Calculate totals
+        $itemsByStore = collect($checkoutItems)->groupBy('store_id');
+        $shipping = $this->calculateShippingForItems($itemsByStore);
+        $tax = $subtotal * 0.08; // Your tax rate
+
+        // Apply voucher if exists
+        $selectedVoucher = session('applied_voucher');
+        $discount = 0;
+
+        if ($selectedVoucher) {
+            $discount = $this->calculateVoucherDiscount($selectedVoucher, $subtotal);
+
+            // Validate voucher is still applicable
+            if (!$this->isVoucherValid($selectedVoucher, $subtotal)) {
+                session()->forget('applied_voucher');
+                $selectedVoucher = null;
+                $discount = 0;
+            }
+        }
+
+        $total = $subtotal + $shipping + $tax - $discount;
+
+        return [
+            'items' => $checkoutItems,
+            'subtotal' => $subtotal,
+            'shipping' => $shipping,
+            'tax' => $tax,
+            'discount' => $discount,
+            'total' => $total,
+            'voucher' => $selectedVoucher,
+            'created_at' => now()->toISOString(),
+        ];
+    }
+
+    private function calculateShippingForItems($itemsByStore)
+    {
+        // Simple calculation: 5000 per store
+        return $itemsByStore->count() * 5000;
+    }
+
+    private function calculateVoucherDiscount($voucher, $subtotal)
+    {
+        if (is_array($voucher)) {
+            $discountAmount = $voucher['discount_amount'] ?? 0;
+            $discountType = $voucher['discount_type'] ?? 'fixed';
+        } else {
+            $discountAmount = $voucher->discount_amount ?? 0;
+            $discountType = $voucher->discount_type ?? 'fixed';
+        }
+
+        if ($discountType === 'percentage') {
+            return $subtotal * ($discountAmount / 100);
+        }
+
+        return $discountAmount;
+    }
+
+    private function isVoucherValid($voucher, $subtotal)
+    {
+        if (is_array($voucher)) {
+            $minAmount = $voucher['minimum_amount'] ?? null;
+        } else {
+            $minAmount = $voucher->minimum_amount ?? null;
+        }
+
+        if ($minAmount && $subtotal < $minAmount) {
+            return false;
+        }
+
+        return true;
     }
 
 }

@@ -16,7 +16,11 @@
 
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
 
-    <div class="z-10 h-max-screen">
+    <div class="relative z-50">
+        @include('frontend.layouts.navbar')
+    </div>
+
+    <div class="p-4 z-10 h-max-screen">
         <div class="bg-white dark:bg-gray-800 transition-colors duration-300">
             @yield('content')
         </div>

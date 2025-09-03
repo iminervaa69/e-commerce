@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 /**
  * Class ProductVariant
- * 
+ *
  * @property int $id
  * @property string $name
  * @property string $slug
@@ -24,7 +24,7 @@ use Illuminate\Support\Str;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property string|null $deleted_at
- * 
+ *
  * @property Product $product
  * @property Collection|Attachment[] $attachments
  * @property Collection|CartItem[] $cart_items
@@ -44,7 +44,7 @@ class ProductVariant extends Model
         'product_id' => 'int',
         'price' => 'float',
         'stock' => 'int',
-        'variant_combination' => 'array', // Cast JSON to array
+        'variant_combination' => 'array',
     ];
 
     protected $fillable = [
@@ -62,12 +62,12 @@ class ProductVariant extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($variant) {
             if (empty($variant->slug)) {
                 $variant->slug = $variant->generateSlug($variant->name);
             }
-            
+
             // Auto-generate SKU if not provided
             if (empty($variant->sku)) {
                 $variant->sku = $variant->generateSku();
@@ -97,7 +97,7 @@ class ProductVariant extends Model
     {
         $product = $this->product ?? Product::find($this->product_id);
         $baseSlug = $product ? Str::slug($product->name) : 'PROD';
-        
+
         // If variant_combination exists, create SKU from attributes
         if ($this->variant_combination) {
             $attributeParts = [];
@@ -109,9 +109,9 @@ class ProductVariant extends Model
             // Fallback: use variant name or random string
             $suffix = $this->name ? Str::slug($this->name) : Str::random(6);
         }
-        
+
         $baseSku = strtoupper($baseSlug . '-' . $suffix);
-        
+
         // Ensure uniqueness
         $sku = $baseSku;
         $counter = 1;
@@ -119,13 +119,13 @@ class ProductVariant extends Model
             $sku = $baseSku . '-' . $counter;
             $counter++;
         }
-        
+
         return $sku;
     }
 
     /**
      * Get human-readable attribute display
-     * 
+     *
      * @return string
      */
     public function getAttributesDisplayAttribute()
@@ -133,16 +133,16 @@ class ProductVariant extends Model
         if (!$this->variant_combination) {
             return null;
         }
-        
+
         $display = [];
         foreach ($this->variant_combination as $key => $value) {
             // Try to get display value from product's variant_attributes
             $productAttributes = $this->product->variant_attributes ?? [];
             $displayValue = $this->getDisplayValue($key, $value, $productAttributes);
-            
+
             $display[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $displayValue;
         }
-        
+
         return implode(', ', $display);
     }
 
@@ -158,26 +158,26 @@ class ProductVariant extends Model
                 }
             }
         }
-        
+
         return ucfirst(str_replace('_', ' ', $value));
     }
 
     /**
      * Check if variant has specific attribute value
-     * 
+     *
      * @param string $attribute
      * @param string $value
      * @return bool
      */
     public function hasVariantAttribute($attribute, $value)
     {
-        return isset($this->variant_combination[$attribute]) && 
+        return isset($this->variant_combination[$attribute]) &&
                $this->variant_combination[$attribute] === $value;
     }
 
     /**
      * Get variant attribute value
-     * 
+     *
      * @param string $attribute
      * @return mixed|null
      */
