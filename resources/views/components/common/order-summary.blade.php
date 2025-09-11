@@ -198,15 +198,21 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
             <div class="border-t dark:border-gray-700 pt-4 space-y-2">
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">Subtotal</span>
-                    <span class="text-gray-900 dark:text-white">Rp{{ number_format($calculatedSubtotal, 0, ',', '.') }}</span>
+                    <span class="text-gray-900 dark:text-white" data-subtotal="{{ $calculatedSubtotal }}">
+                        Rp{{ number_format($calculatedSubtotal, 0, ',', '.') }}
+                    </span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">Shipping</span>
-                    <span class="text-gray-900 dark:text-white">Rp{{ number_format($shipping, 0, ',', '.') }}</span>
+                    <span class="text-gray-900 dark:text-white" data-shipping="{{ $shipping }}">
+                        Rp{{ number_format($shipping, 0, ',', '.') }}
+                    </span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-gray-600 dark:text-gray-400">Tax</span>
-                    <span class="text-gray-900 dark:text-white">Rp{{ number_format($tax, 0, ',', '.') }}</span>
+                    <span class="text-gray-900 dark:text-white" data-tax="{{ $tax }}">
+                        Rp{{ number_format($tax, 0, ',', '.') }}
+                    </span>
                 </div>
                 @if($discount > 0)
                     <div class="flex justify-between text-sm text-green-600 dark:text-green-400">
@@ -215,13 +221,15 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
                                 <span class="text-xs">({{ $voucherCode }})</span>
                             @endif
                         </span>
-                        <span>-Rp{{ number_format($discount, 0, ',', '.') }}</span>
+                        <span data-discount="{{ $discount }}">-Rp{{ number_format($discount, 0, ',', '.') }}</span>
                     </div>
                 @endif
                 <div class="border-t dark:border-gray-700 pt-2">
                     <div class="flex justify-between">
                         <span class="text-lg font-semibold text-gray-900 dark:text-white">Total</span>
-                        <span class="text-lg font-semibold text-gray-900 dark:text-white">Rp{{ number_format($calculatedTotal, 0, ',', '.') }}</span>
+                        <span class="text-lg font-semibold text-gray-900 dark:text-white" data-total="{{ $calculatedTotal }}">
+                            Rp{{ number_format($calculatedTotal, 0, ',', '.') }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -248,3 +256,32 @@ $calculatedTotal = $calculatedSubtotal + $shipping + $tax - $discount;
         @endif
     @endif
 </div>
+
+@push('scripts')
+<script>
+// Listen for address/billing changes and reload totals
+document.addEventListener('DOMContentLoaded', function() {
+    // Listen for shipping address changes
+    const shippingInputs = document.querySelectorAll('input[name="shipping_address"]');
+    shippingInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (window.checkoutManager) {
+                window.checkoutManager.loadCheckoutTotals();
+                console.log('Checkout totals reloaded after shipping address change');
+            }
+        });
+    });
+
+    // Listen for billing information changes
+    const billingInputs = document.querySelectorAll('input[name="billing_information"]');
+    billingInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (window.checkoutManager) {
+                window.checkoutManager.loadCheckoutTotals();
+                console.log('Checkout totals reloaded after billing change');
+            }
+        });
+    });
+});
+</script>
+@endpush

@@ -52,17 +52,188 @@ class CheckoutManager {
         this.setupRealTimeValidation();
     }
 
-    // Load checkout totals (this should be called when page loads or cart changes)
-    loadCheckoutTotals() {
+
+    async submitPayment(tokenId, authenticationId, additionalData = {}) {
+        console.log('=== PAYMENT SUBMISSION DEBUG ===');
+        console.log('Token ID:', tokenId);
+        console.log('Authentication ID:', authenticationId);
+        console.log('Additional Data:', additionalData);
+
+        // Collect all checkout data
+        const checkoutData = this.collectAllCheckoutData();
+        console.log('Raw checkout data:', checkoutData);
+
+        // Validate critical data before sending
+        if (!this.checkoutTotals.total || this.checkoutTotals.total <= 0) {
+            console.error('❌ Invalid total amount:', this.checkoutTotals.total);
+            this.showError('Invalid order total. Please refresh the page and try again.');
+            return;
+        }
+
+        if (!checkoutData.billing_information_id) {
+            console.error('❌ Missing billing information ID:', checkoutData.billing_information_id);
+            this.showError('Please select billing information.');
+            return;
+        }
+
+        if (!tokenId) {
+            console.error('❌ Missing token ID');
+            this.showError('Payment token missing. Please try again.');
+            return;
+        }
+
+        // Prepare final payment data - controller will get customer info from billing_information_id
+        const paymentData = {
+            // Payment tokens
+            token_id: tokenId,
+            authentication_id: authenticationId,
+
+            // Address IDs - controller will fetch the actual data
+            address_id: checkoutData.address_id,
+            billing_information_id: checkoutData.billing_information_id,
+
+            // Payment details
+            payment_method: checkoutData.payment_method,
+            amount: this.checkoutTotals.total,
+
+            // Optional fields
+            voucher_code: checkoutData.voucher_code || null,
+
+            // CSRF token
+            _token: checkoutData._token,
+
+            // Merge any additional data
+            ...additionalData
+        };
+
+        console.log('=== PAYMENT DATA VALIDATION ===');
+        console.log('Amount:', paymentData.amount, '(type:', typeof paymentData.amount, ')');
+        console.log('Token ID:', paymentData.token_id);
+        console.log('Shipping address ID:', paymentData.address_id);
+        console.log('Billing info ID:', paymentData.billing_information_id);
+        console.log('CSRF Token:', paymentData._token ? 'Present' : 'Missing');
+
+        console.log('=== FINAL PAYMENT PAYLOAD ===');
+        console.log(JSON.stringify(paymentData, null, 2));
+
         try {
-            // Try to get totals from various sources
-            const totalsElement = document.querySelector('[data-checkout-totals]');
-            if (totalsElement) {
-                const totalsData = JSON.parse(totalsElement.dataset.checkoutTotals);
-                this.checkoutTotals = { ...this.checkoutTotals, ...totalsData };
+            console.log('Sending request to /checkout/process-card...');
+
+            const response = await fetch('/checkout/process-card', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': paymentData._token
+                },
+                body: JSON.stringify(paymentData)
+            });
+
+            console.log('Response status:', response.status);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+            let result;
+            const contentType = response.headers.get('content-type');
+
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                const text = await response.text();
+                console.error('❌ Non-JSON response:', text);
+                this.showError('Server returned invalid response. Please check server logs.');
+                return;
             }
 
-            // Alternative: Get from individual elements
+            console.log('=== BACKEND RESPONSE ===');
+            console.log('Success:', result.success);
+            console.log('Message:', result.message);
+            console.log('Full response:', result);
+
+            if (result.success) {
+                console.log('✅ Payment successful, redirecting...');
+                this.showSuccess('Payment successful! Redirecting...');
+                setTimeout(() => {
+                    window.location.href = result.redirect_url || '/checkout/success';
+                }, 1000);
+            } else {
+                console.error('❌ Payment failed:', result);
+
+                if (result.errors) {
+                    console.error('Validation errors:', result.errors);
+                    const errorMessages = Object.values(result.errors).flat();
+                    this.showError('Validation errors:\n• ' + errorMessages.join('\n• '));
+                } else if (result.message) {
+                    this.showError(result.message);
+                } else {
+                    this.showError('Payment failed. Please try again.');
+                }
+
+                // Log additional debug info if available
+                if (result.debug) {
+                    console.log('Debug info from backend:', result.debug);
+                }
+            }
+        } catch (error) {
+            console.error('❌ Payment request failed:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+            this.showError('Network error. Please check your connection and try again.');
+        }
+    }
+
+
+    validateAllRequiredFields() {
+        console.log('Validating all required fields...');
+
+        const errors = [];
+
+        // Validate billing information selection
+        const billingInfo = this.getBillingData();
+        if (!billingInfo || !billingInfo.billing_information_id) {
+            errors.push('Please select billing information');
+        }
+
+        // Validate addresses
+        const shippingAddress = document.querySelector('input[name="shipping_address"]:checked');
+        if (!shippingAddress) {
+            errors.push('Please select a shipping address');
+        }
+
+        // Validate payment method
+        const paymentMethod = this.getPaymentMethod();
+        if (!paymentMethod) {
+            errors.push('Please select a payment method');
+        } else {
+            // Payment method specific validation
+            if (paymentMethod === 'card') {
+                if (!this.validateCardForm()) {
+                    errors.push('Please complete all card information correctly');
+                }
+            } else if (paymentMethod === 'ewallet') {
+                const selectedChannel = this.getSelectedEwalletChannel();
+                if (!selectedChannel) {
+                    errors.push('Please select an e-wallet option');
+                }
+            }
+        }
+
+        // Validate order totals
+        if (!this.checkoutTotals.total || this.checkoutTotals.total <= 0) {
+            errors.push('Invalid order total');
+        }
+
+        console.log('Validation errors:', errors);
+        return errors;
+    }
+
+    async loadCheckoutTotals() {
+        try {
+            console.log('Loading checkout totals...');
+
+            // Try to get totals from DOM first (static)
             const subtotalEl = document.querySelector('[data-subtotal]');
             const shippingEl = document.querySelector('[data-shipping]');
             const taxEl = document.querySelector('[data-tax]');
@@ -75,83 +246,136 @@ class CheckoutManager {
             if (discountEl) this.checkoutTotals.discount = parseFloat(discountEl.dataset.discount) || 0;
             if (totalEl) this.checkoutTotals.total = parseFloat(totalEl.dataset.total) || 0;
 
+            // Check if we have selected addresses to calculate dynamic totals
+            const shippingAddress = document.querySelector('input[name="shipping_address"]:checked');
+            const billingInfo = document.querySelector('input[name="billing_information"]:checked');
+            const voucherCode = document.querySelector('input[name="voucher_code"]')?.value;
+
+            // If addresses are selected, get dynamic calculation
+            if (shippingAddress || voucherCode) {
+                console.log('Calculating dynamic totals...');
+                await this.calculateDynamicTotals(
+                    shippingAddress?.value,
+                    billingInfo?.value,
+                    voucherCode
+                );
+            }
+
             this.checkoutTotals.lastUpdated = new Date().toISOString();
-            
             console.log('Loaded checkout totals:', this.checkoutTotals);
+
         } catch (error) {
             console.error('Error loading checkout totals:', error);
         }
     }
 
-    getBillingData() {
-        console.log('Getting billing data...');
-        
+    async calculateDynamicTotals(shippingAddressId, billingInformationId, voucherCode) {
         try {
-            // Method 1: Try from form fields directly (most reliable)
-            const firstName = document.querySelector('input[name="first_name"]')?.value?.trim();
-            const lastName = document.querySelector('input[name="last_name"]')?.value?.trim();
-            const email = document.querySelector('input[name="email"]')?.value?.trim();
-            const phone = document.querySelector('input[name="phone"]')?.value?.trim();
+            console.log('=== CALCULATING DYNAMIC TOTALS ===');
 
-            if (firstName && lastName && email && phone) {
-                console.log('Found billing data from form fields');
-                return {
-                    first_name: firstName,
-                    last_name: lastName,
-                    email: email.toLowerCase(),
-                    phone: phone
+            const csrfToken = document.querySelector('#csrf-token')?.value ||
+                            document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+            const requestData = {
+                address_id: shippingAddressId,
+                billing_information_id: billingInformationId,
+                voucher_code: voucherCode,
+                amount: this.checkoutTotals.total || 0
+            };
+
+            console.log('Request URL: /cart/calculate-totals');
+            console.log('Request data:', requestData);
+
+            const response = await fetch('/cart/calculate-totals', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            console.log('Response status:', response.status);
+            const result = await response.json();
+            console.log('Response data:', result);
+
+            if (result.success) {
+                this.checkoutTotals = {
+                    ...this.checkoutTotals,
+                    ...result.totals,
+                    lastUpdated: new Date().toISOString()
                 };
+                this.updateTotalsDisplay(result.totals);
+                console.log('✅ Dynamic totals updated successfully');
+            } else {
+                console.error('❌ Calculate totals failed:', result);
+                this.showError('Failed to update totals: ' + result.message);
             }
 
-            // Method 2: Try Alpine.js data access
-            const billingSelector = document.querySelector('.billing-selector');
-            
-            if (billingSelector && typeof Alpine !== 'undefined') {
-                const alpineData = Alpine.$data(billingSelector);
-                
-                if (alpineData && alpineData.selectedBilling) {
-                    const selectedBilling = alpineData.billingInformation.find(
-                        billing => billing.id == alpineData.selectedBilling
-                    );
-                    
-                    if (selectedBilling) {
-                        console.log('Found billing via Alpine.js:', selectedBilling);
-                        return {
-                            first_name: selectedBilling.first_name,
-                            last_name: selectedBilling.last_name,
-                            email: selectedBilling.email,
-                            phone: selectedBilling.phone
-                        };
-                    }
-                }
-            }
-            
-            // Method 3: Fallback to data attributes
-            const selectedInput = document.querySelector('input[name="billing_information"]:checked');
-            
-            if (selectedInput && billingSelector) {
-                const selectedId = selectedInput.value;
-                const billingData = JSON.parse(billingSelector.dataset.billingInformation || '[]');
-                const selectedBilling = billingData.find(billing => billing.id == selectedId);
-                
-                if (selectedBilling) {
-                    console.log('Found billing via data attributes:', selectedBilling);
-                    return {
-                        first_name: selectedBilling.first_name,
-                        last_name: selectedBilling.last_name,
-                        email: selectedBilling.email,
-                        phone: selectedBilling.phone
-                    };
-                }
-            }
-            
-            console.log('No billing data found');
-            return null;
-            
         } catch (error) {
-            console.error('Error getting billing data:', error);
-            return null;
+            console.error('❌ Calculate totals request error:', error);
+            this.showError('Failed to calculate totals. Please refresh and try again.');
         }
+    }
+
+    updateTotalsDisplay(totals) {
+        // Update data attributes and display text
+        const subtotalEl = document.querySelector('[data-subtotal]');
+        const shippingEl = document.querySelector('[data-shipping]');
+        const taxEl = document.querySelector('[data-tax]');
+        const discountEl = document.querySelector('[data-discount]');
+        const totalEl = document.querySelector('[data-total]');
+
+        if (subtotalEl) {
+            subtotalEl.dataset.subtotal = totals.subtotal;
+            subtotalEl.textContent = `Rp${totals.subtotal.toLocaleString('id-ID')}`;
+        }
+
+        if (shippingEl) {
+            shippingEl.dataset.shipping = totals.shipping;
+            shippingEl.textContent = `Rp${totals.shipping.toLocaleString('id-ID')}`;
+        }
+
+        if (taxEl) {
+            taxEl.dataset.tax = totals.tax;
+            taxEl.textContent = `Rp${totals.tax.toLocaleString('id-ID')}`;
+        }
+
+        if (totalEl) {
+            totalEl.dataset.total = totals.total;
+            totalEl.textContent = `Rp${totals.total.toLocaleString('id-ID')}`;
+        }
+
+        // Handle discount display (may not exist initially)
+        if (totals.discount > 0) {
+            if (discountEl) {
+                discountEl.dataset.discount = totals.discount;
+                discountEl.textContent = `-Rp${totals.discount.toLocaleString('id-ID')}`;
+                discountEl.parentElement.style.display = 'flex';
+            }
+        } else {
+            if (discountEl) {
+                discountEl.parentElement.style.display = 'none';
+            }
+        }
+    }
+
+
+    getBillingData() {
+        console.log('Getting billing information ID...');
+
+        const selectedBilling = document.querySelector('input[name="billing_information"]:checked');
+
+        if (selectedBilling && selectedBilling.value) {
+            console.log('Found billing information ID:', selectedBilling.value);
+            return {
+                billing_information_id: selectedBilling.value
+            };
+        }
+
+        console.log('No billing information selected');
+        return null;
     }
 
     getPaymentMethod() {
@@ -205,7 +429,7 @@ class CheckoutManager {
                 }
             });
         }
-        
+
         // Expiry date formatting
         const cardExpiryInput = document.getElementById('card-expiry');
         if (cardExpiryInput) {
@@ -217,7 +441,7 @@ class CheckoutManager {
                 e.target.value = value;
             });
         }
-        
+
         // CVV number only
         const cardCvvInput = document.getElementById('card-cvv');
         if (cardCvvInput) {
@@ -229,34 +453,30 @@ class CheckoutManager {
 
     collectAllCheckoutData() {
         console.log('Collecting all checkout data...');
-        
+
         const shippingAddress = document.querySelector('input[name="shipping_address"]:checked');
-        const billingInfo = document.querySelector('input[name="billing_information"]:checked');
-        const billingData = this.getBillingData();
+        const billingInfo = this.getBillingData();
         const paymentMethod = this.getPaymentMethod();
-        
+
         const checkoutData = {
-            // Address information
-            shipping_address_id: shippingAddress?.value || null,
-            billing_information_id: billingInfo?.value || null,
-            
-            // Customer billing information
-            customer_info: billingData,
-            
+            // Address information - just IDs
+            address_id: shippingAddress?.value || null,
+            billing_information_id: billingInfo?.billing_information_id || null,
+
             // Payment information
             payment_method: paymentMethod,
-            
+
             // Order totals
             order_totals: this.checkoutTotals,
-            
+
             // Additional data
             voucher_code: document.querySelector('input[name="voucher_code"]')?.value || null,
-            
+
             // CSRF token
-            _token: document.querySelector('#csrf-token')?.value || 
+            _token: document.querySelector('#csrf-token')?.value ||
                 document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
         };
-        
+
         // Add payment-specific data
         if (paymentMethod === 'card') {
             const cardData = this.getCardData();
@@ -266,7 +486,7 @@ class CheckoutManager {
         } else if (paymentMethod === 'ewallet') {
             checkoutData.ewallet_channel = this.getSelectedEwalletChannel();
         }
-        
+
         console.log('Collected checkout data:', checkoutData);
         return checkoutData;
     }
@@ -364,65 +584,21 @@ class CheckoutManager {
 
     validateCardForm() {
         const cardData = this.getCardData();
-        
+
         if (!cardData) {
             return false;
         }
-        
+
         // Basic validation
-        const isValid = 
-            cardData.cardNumber.length >= 13 && 
+        const isValid =
+            cardData.cardNumber.length >= 13 &&
             cardData.cardNumber.length <= 19 &&
-            cardData.expMonth && 
-            cardData.expYear && 
-            cardData.cvv.length >= 3 && 
+            cardData.expMonth &&
+            cardData.expYear &&
+            cardData.cvv.length >= 3 &&
             cardData.cvv.length <= 4;
 
         return isValid;
-    }
-
-    validateAllRequiredFields() {
-        console.log('Validating all required fields...');
-        
-        const errors = [];
-        
-        // Get billing data (which includes customer info)
-        const billingData = this.getBillingData();
-        if (!billingData) {
-            errors.push('Please complete all billing information');
-        }
-        
-        // Validate addresses
-        const shippingAddress = document.querySelector('input[name="shipping_address"]:checked');
-        if (!shippingAddress) {
-            errors.push('Please select a shipping address');
-        }
-        
-        // Validate payment method
-        const paymentMethod = this.getPaymentMethod();
-        if (!paymentMethod) {
-            errors.push('Please select a payment method');
-        } else {
-            // Payment method specific validation
-            if (paymentMethod === 'card') {
-                if (!this.validateCardForm()) {
-                    errors.push('Please complete all card information correctly');
-                }
-            } else if (paymentMethod === 'ewallet') {
-                const selectedChannel = this.getSelectedEwalletChannel();
-                if (!selectedChannel) {
-                    errors.push('Please select an e-wallet option');
-                }
-            }
-        }
-
-        // Validate order totals
-        if (!this.checkoutTotals.total || this.checkoutTotals.total <= 0) {
-            errors.push('Invalid order total');
-        }
-        
-        console.log('Validation errors:', errors);
-        return errors;
     }
 
     async handleCheckout(event) {
@@ -446,7 +622,6 @@ class CheckoutManager {
         }
     }
 
-    // MAIN CARD PAYMENT PROCESS - SENDS DATA TO XENDIT
     async processCardPayment() {
         try {
             this.setLoading(true);
@@ -498,56 +673,6 @@ class CheckoutManager {
         }
     }
 
-    // CREATE XENDIT CARD TOKEN - THIS IS WHERE DATA GOES TO XENDIT
-    createCardToken(cardData, billingData) {
-        return new Promise((resolve, reject) => {
-            if (typeof Xendit === 'undefined') {
-                reject(new Error('Xendit not loaded'));
-                return;
-            }
-
-            // Format phone number for Xendit
-            let formattedPhone = billingData.phone.replace(/\D/g, '');
-
-            if (!formattedPhone.startsWith('62')) {
-                if (formattedPhone.startsWith('0')) {
-                    formattedPhone = formattedPhone.substring(1);
-                }
-                formattedPhone = '62' + formattedPhone;
-            }
-
-            formattedPhone = '+' + formattedPhone;
-
-            // THIS IS THE DATA SENT TO XENDIT FOR TOKEN CREATION
-            const tokenData = {
-                amount: Math.round(this.checkoutTotals.total), // Convert to integer (cents)
-                card_number: cardData.cardNumber.replace(/\s/g, ''),
-                card_exp_month: cardData.expMonth,
-                card_exp_year: cardData.expYear,
-                card_cvv: cardData.cvv,
-                card_holder_first_name: billingData.first_name,
-                card_holder_last_name: billingData.last_name,
-                card_holder_email: billingData.email,
-                card_holder_phone_number: formattedPhone,
-                is_multiple_use: false, // Single use token
-                should_authenticate: true // Enable 3DS if required
-            };
-
-            console.log('Creating Xendit token with data:', tokenData);
-
-            // SEND DATA TO XENDIT
-            Xendit.card.createToken(tokenData, (error, response) => {
-                if (error) {
-                    console.error('Xendit token creation error:', error);
-                    reject(error);
-                } else {
-                    console.log('Xendit token creation success:', response);
-                    resolve(response);
-                }
-            });
-        });
-    }
-
     // Handle 3DS authentication
     async handle3DSAuthentication(tokenData, billingData) {
         console.log('3DS authentication required');
@@ -570,20 +695,23 @@ class CheckoutManager {
         const checkClosed = setInterval(async () => {
             if (popup.closed) {
                 clearInterval(checkClosed);
-                console.log('3DS popup closed, attempting payment...');
+                console.log('3DS popup closed, waiting for authentication to complete...');
 
                 const authUrl = tokenData.payer_authentication_url;
                 const authIdMatch = authUrl.match(/authentications\/([a-zA-Z0-9]+)/);
                 const authenticationId = authIdMatch ? authIdMatch[1] : tokenData.id;
 
-                try {
-                    await this.submitPayment(tokenData.id, authenticationId, billingData);
-                } catch (error) {
-                    console.error('Payment error after 3DS:', error);
-                    this.showError('Payment failed after authentication. Please try again.');
-                } finally {
-                    this.setLoading(false);
-                }
+                // SOLUTION 1: Add delay to allow authentication to complete
+                setTimeout(async () => {
+                    try {
+                        await this.submitPayment(tokenData.id, authenticationId, billingData);
+                    } catch (error) {
+                        console.error('Payment error after 3DS:', error);
+                        this.showError('Payment failed after authentication. Please try again.');
+                    } finally {
+                        this.setLoading(false);
+                    }
+                }, 2000); // Wait 2 seconds after popup closes
             }
         }, 1000);
 
@@ -598,75 +726,84 @@ class CheckoutManager {
         }, 600000);
     }
 
-    // Submit payment to your backend
-    async submitPayment(tokenId, authenticationId, additionalData = {}) {
-        console.log('Submitting payment with token:', tokenId);
-        
-        // Collect all checkout data
-        const checkoutData = this.collectAllCheckoutData();
-        
-        // Prepare final payment data for your backend
-        const paymentData = {
-            ...checkoutData.customer_info,
-            token_id: tokenId,
-            authentication_id: authenticationId,
-            shipping_address_id: checkoutData.shipping_address_id,
-            billing_information_id: checkoutData.billing_information_id,
-            payment_method: checkoutData.payment_method,
-            voucher_code: checkoutData.voucher_code,
-            order_totals: checkoutData.order_totals,
-            _token: checkoutData._token,
-            ...additionalData
-        };
-        
-        console.log('Final payment data being sent to backend:', paymentData);
-        
+    getCustomerInfoForXendit(billingInfoId) {
+        console.log('Getting customer info for Xendit token creation...');
+
         try {
-            const response = await fetch('/payment/card', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': paymentData._token
-                },
-                body: JSON.stringify(paymentData)
-            });
+            // Method 1: Try to get from data attributes on the selected billing option
+            const selectedInput = document.querySelector(`input[name="billing_information"][value="${billingInfoId}"]`);
+            if (selectedInput) {
+                const container = selectedInput.closest('[data-billing-info]');
+                if (container) {
+                    const billingData = JSON.parse(container.dataset.billingInfo || '{}');
+                    if (billingData.first_name && billingData.email) {
+                        // Format phone number for Xendit
+                        let formattedPhone = billingData.phone.replace(/\D/g, '');
+                        if (!formattedPhone.startsWith('62')) {
+                            if (formattedPhone.startsWith('0')) {
+                                formattedPhone = formattedPhone.substring(1);
+                            }
+                            formattedPhone = '62' + formattedPhone;
+                        }
+                        formattedPhone = '+' + formattedPhone;
 
-            const result = await response.json();
-            
-            console.log('Payment response:', result);
-
-            if (result.success) {
-                console.log('Payment successful, redirecting...');
-                this.showSuccess('Payment successful! Redirecting...');
-                setTimeout(() => {
-                    window.location.href = result.redirect_url || '/checkout/success';
-                }, 1000);
-            } else {
-                console.error('Payment failed:', result);
-                if (result.errors) {
-                    const errorMessages = Object.values(result.errors).flat();
-                    this.showError('Validation errors:\n• ' + errorMessages.join('\n• '));
-                } else {
-                    this.showError(result.message || 'Payment failed. Please try again.');
+                        return {
+                            first_name: billingData.first_name,
+                            last_name: billingData.last_name,
+                            email: billingData.email,
+                            phone: formattedPhone
+                        };
+                    }
                 }
             }
+
+            // Method 2: Try Alpine.js data
+            const billingSelector = document.querySelector('.billing-selector');
+            if (billingSelector && typeof Alpine !== 'undefined') {
+                const alpineData = Alpine.$data(billingSelector);
+                if (alpineData && alpineData.billingInformation) {
+                    const selectedBilling = alpineData.billingInformation.find(
+                        billing => billing.id == billingInfoId
+                    );
+
+                    if (selectedBilling) {
+                        let formattedPhone = selectedBilling.phone.replace(/\D/g, '');
+                        if (!formattedPhone.startsWith('62')) {
+                            if (formattedPhone.startsWith('0')) {
+                                formattedPhone = formattedPhone.substring(1);
+                            }
+                            formattedPhone = '62' + formattedPhone;
+                        }
+                        formattedPhone = '+' + formattedPhone;
+
+                        return {
+                            first_name: selectedBilling.first_name,
+                            last_name: selectedBilling.last_name,
+                            email: selectedBilling.email,
+                            phone: formattedPhone
+                        };
+                    }
+                }
+            }
+
+            console.error('Unable to find customer info for billing ID:', billingInfoId);
+            return null;
+
         } catch (error) {
-            console.error('Payment request failed:', error);
-            this.showError('Network error. Please check your connection and try again.');
+            console.error('Error getting customer info for Xendit:', error);
+            return null;
         }
     }
 
-    // E-WALLET PAYMENT PROCESS billing
     async processEwalletPayment() {
         try {
             this.setLoading(true);
 
             // Collect all checkout data
             const checkoutData = this.collectAllCheckoutData();
-            
-            if (!checkoutData.shipping_address_id || !checkoutData.billing_information_id) {
-                this.showError('Please select both shipping and billing information');
+
+            if (!checkoutData.address_id || !checkoutData.billing_information_id) {
+                this.showError('Please select both shipping address and billing information');
                 return;
             }
 
@@ -675,22 +812,20 @@ class CheckoutManager {
                 return;
             }
 
-            // Prepare e-wallet payment data
+            // Prepare e-wallet payment data - simplified to just send IDs
             const paymentData = {
-                ...checkoutData.customer_info,
                 channel_code: this.selectedEwalletChannel,
-                shipping_address_id: checkoutData.shipping_address_id,
+                address_id: checkoutData.address_id,
                 billing_information_id: checkoutData.billing_information_id,
                 payment_method: 'ewallet',
                 voucher_code: checkoutData.voucher_code,
-                order_totals: checkoutData.order_totals,
-                amount: this.checkoutTotals.total, // Include amount for e-wallet
+                amount: this.checkoutTotals.total,
                 _token: checkoutData._token
             };
 
             console.log('E-wallet payment data being sent:', paymentData);
 
-            const response = await fetch('/payment/ewallet', {
+            const response = await fetch('/checkout/process-ewallet', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -722,6 +857,60 @@ class CheckoutManager {
         } finally {
             this.setLoading(false);
         }
+    }
+
+    createCardToken(cardData, billingInfo) {
+        return new Promise((resolve, reject) => {
+            if (typeof Xendit === 'undefined') {
+                reject(new Error('Xendit not loaded'));
+                return;
+            }
+
+            // Get billing information to construct customer details for Xendit token
+            const billingInfoId = billingInfo?.billing_information_id;
+            if (!billingInfoId) {
+                reject(new Error('Billing information not selected'));
+                return;
+            }
+
+            // For Xendit token creation, we need the actual customer details
+            // We'll need to get these from the DOM or make them available somehow
+            // For now, let's get them from form fields or data attributes
+
+            const customerInfo = this.getCustomerInfoForXendit(billingInfoId);
+            if (!customerInfo) {
+                reject(new Error('Unable to get customer information for payment processing'));
+                return;
+            }
+
+            // THIS IS THE DATA SENT TO XENDIT FOR TOKEN CREATION
+            const tokenData = {
+                amount: Math.round(this.checkoutTotals.total), // Convert to integer
+                card_number: cardData.cardNumber.replace(/\s/g, ''),
+                card_exp_month: cardData.expMonth,
+                card_exp_year: cardData.expYear,
+                card_cvv: cardData.cvv,
+                card_holder_first_name: customerInfo.first_name,
+                card_holder_last_name: customerInfo.last_name,
+                card_holder_email: customerInfo.email,
+                card_holder_phone_number: customerInfo.phone,
+                is_multiple_use: false,
+                should_authenticate: true
+            };
+
+            console.log('Creating Xendit token with data:', tokenData);
+
+            // SEND DATA TO XENDIT
+            Xendit.card.createToken(tokenData, (error, response) => {
+                if (error) {
+                    console.error('Xendit token creation error:', error);
+                    reject(error);
+                } else {
+                    console.log('Xendit token creation success:', response);
+                    resolve(response);
+                }
+            });
+        });
     }
 
     setLoading(isLoading) {
@@ -819,12 +1008,14 @@ class CheckoutManager {
         // console.log('Last Updated:', this.checkoutTotals.lastUpdated);
         // console.log('Selected Voucher:', this.checkoutTotals.selectedVoucher);
         // console.log('=== END TOTALS ===');
+        // getCustomerInfoForXendit()
+        // getBillingData()
     }
 
     logAllCheckoutData() {
         const data = this.collectAllCheckoutData();
         // console.log('=== COMPLETE CHECKOUT DATA ===');
-        // console.log('Shipping Address ID:', data.shipping_address_id);
+        // console.log('Shipping Address ID:', data.address_id);
         // console.log('Billing Information ID:', data.billing_information_id);
         // console.log('Customer Info:', data.customer_info);
         // console.log('Payment Method:', data.payment_method);
@@ -835,17 +1026,15 @@ class CheckoutManager {
         // console.log('=== END CHECKOUT DATA ===');
     }
 
-    // Update checkout totals (call this when cart changes)
     updateCheckoutTotals(newTotals) {
-        this.checkoutTotals = { 
-            ...this.checkoutTotals, 
-            ...newTotals, 
-            lastUpdated: new Date().toISOString() 
+        this.checkoutTotals = {
+            ...this.checkoutTotals,
+            ...newTotals,
+            lastUpdated: new Date().toISOString()
         };
         console.log('Checkout totals updated:', this.checkoutTotals);
     }
 
-    // Get formatted amount for display
     getFormattedAmount() {
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
@@ -853,7 +1042,6 @@ class CheckoutManager {
         }).format(this.checkoutTotals.total);
     }
 
-    // Validate Xendit requirements
     validateXenditRequirements() {
         const errors = [];
 
@@ -871,25 +1059,113 @@ class CheckoutManager {
 
         return errors;
     }
+
+    async checkAuthenticationStatus(authenticationId) {
+        try {
+            // This would require a backend endpoint to check auth status with Xendit
+            const response = await fetch('/xendit/check-authentication', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                },
+                body: JSON.stringify({
+                    authentication_id: authenticationId
+                })
+            });
+
+            const result = await response.json();
+            return result.status === 'VERIFIED';
+        } catch (error) {
+            console.error('Error checking authentication status:', error);
+            return false;
+        }
+    }
+
+    async handle3DSAuthenticationWithMessages(tokenData, billingData) {
+        console.log('3DS authentication required with message listening');
+
+        this.showInfo('3D Secure authentication required. Please complete the authentication in the popup window.');
+
+        const popup = window.open(
+            tokenData.payer_authentication_url,
+            '3ds-auth',
+            'width=500,height=600,scrollbars=yes,resizable=yes'
+        );
+
+        if (!popup) {
+            this.showError('Please enable popups for 3D Secure authentication');
+            return;
+        }
+
+        // Listen for messages from popup
+        const messageHandler = async (event) => {
+            // Make sure message is from popup
+            if (event.source !== popup) return;
+
+            if (event.data && event.data.type === '3ds_complete') {
+                console.log('3DS authentication completed via message');
+                window.removeEventListener('message', messageHandler);
+
+                const authUrl = tokenData.payer_authentication_url;
+                const authIdMatch = authUrl.match(/authentications\/([a-zA-Z0-9]+)/);
+                const authenticationId = authIdMatch ? authIdMatch[1] : tokenData.id;
+
+                // Wait a bit then submit payment
+                setTimeout(async () => {
+                    try {
+                        await this.submitPayment(tokenData.id, authenticationId, billingData);
+                    } catch (error) {
+                        console.error('Payment error after 3DS:', error);
+                        this.showError('Payment failed after authentication. Please try again.');
+                    } finally {
+                        this.setLoading(false);
+                    }
+                }, 1000);
+            }
+        };
+
+        window.addEventListener('message', messageHandler);
+
+        // Fallback: check if popup is closed (in case messages don't work)
+        const checkClosed = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(checkClosed);
+                window.removeEventListener('message', messageHandler);
+
+                // Only proceed if we haven't already handled via messages
+                setTimeout(async () => {
+                    const authUrl = tokenData.payer_authentication_url;
+                    const authIdMatch = authUrl.match(/authentications\/([a-zA-Z0-9]+)/);
+                    const authenticationId = authIdMatch ? authIdMatch[1] : tokenData.id;
+
+                    try {
+                        await this.submitPayment(tokenData.id, authenticationId, billingData);
+                    } catch (error) {
+                        console.error('Payment error after 3DS:', error);
+                        this.showError('Payment failed after authentication. Please try again.');
+                    } finally {
+                        this.setLoading(false);
+                    }
+                }, 3000); // Wait longer when using fallback
+            }
+        }, 1000);
+    }
 }
 
-// Initialize checkout manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Make sure Xendit public key is available
     if (!window.xenditPublicKey) {
         console.error('Xendit public key not found! Make sure to set window.xenditPublicKey');
     }
 
-    // Initialize checkout manager
     window.checkoutManager = new CheckoutManager();
-    
-    // Make debug functions globally available
+
     window.debugCheckout = () => {
         console.log('=== CHECKOUT DEBUG ===');
         window.checkoutManager.logCheckoutTotals();
         window.checkoutManager.logAllCheckoutData();
-        
-        // Validate Xendit requirements
+
         const xenditErrors = window.checkoutManager.validateXenditRequirements();
         if (xenditErrors.length > 0) {
             console.error('Xendit validation errors:', xenditErrors);
@@ -900,7 +1176,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 });
 
-// Export for module systems
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CheckoutManager;
 }

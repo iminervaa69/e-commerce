@@ -55,7 +55,7 @@ return [
     |
     */
 
-    'webhook_url' => '/xendit/webhook',
+    'webhook_url' => '/api/xendit/webhook',
 
     /*
     |--------------------------------------------------------------------------

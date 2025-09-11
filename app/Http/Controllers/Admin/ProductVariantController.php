@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Http\Controllers\Controller;
 
 class ProductVariantController extends Controller
 {
@@ -63,5 +64,5 @@ class ProductVariantController extends Controller
         $products = Product::with('store')->get();
         return view('admin.pages.products.variants.edit', compact('variant', 'products'));
     }
-    
+
 }

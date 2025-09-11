@@ -44,6 +44,8 @@ class ProductVariant extends Model
         'product_id' => 'int',
         'price' => 'float',
         'stock' => 'int',
+        'reserved_stock' => 'int',  // ADD THIS
+        'sold_count' => 'int',      // ADD THIS
         'variant_combination' => 'array',
     ];
 
@@ -56,6 +58,8 @@ class ProductVariant extends Model
         'variant_combination',
         'price',
         'stock',
+        'reserved_stock',  // ADD THIS
+        'sold_count',      // ADD THIS
         'status'
     ];
 
@@ -206,6 +210,67 @@ class ProductVariant extends Model
     }
 
     /**
+     * Get available stock (total stock minus reserved)
+     */
+    public function getAvailableStockAttribute()
+    {
+        return max(0, $this->stock - ($this->reserved_stock ?? 0));
+    }
+
+    /**
+     * Check if variant is in stock
+     */
+    public function getIsInStockAttribute()
+    {
+        return $this->available_stock > 0;
+    }
+
+    /**
+     * Reserve stock for pending orders
+     */
+    public function reserveStock($quantity)
+    {
+        if ($this->available_stock >= $quantity) {
+            $this->increment('reserved_stock', $quantity);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Release reserved stock back to available
+     */
+    public function releaseReservedStock($quantity)
+    {
+        $releaseAmount = min($quantity, $this->reserved_stock ?? 0);
+        if ($releaseAmount > 0) {
+            $this->decrement('reserved_stock', $releaseAmount);
+        }
+        return $releaseAmount;
+    }
+
+    /**
+     * Deduct stock when payment is confirmed
+     */
+    public function deductStock($quantity)
+    {
+        if ($this->stock >= $quantity) {
+            $this->decrement('stock', $quantity);
+            $this->increment('sold_count', $quantity);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if has enough stock to reserve
+     */
+    public function canReserveStock($quantity)
+    {
+        return $this->available_stock >= $quantity;
+    }
+
+    /**
      * Uncomment this if you want slug-based routing for individual variants
      */
     // public function getRouteKeyName()
@@ -248,4 +313,14 @@ class ProductVariant extends Model
     {
         return $this->hasMany(ProductReview::class, 'product_variants_id');
     }
+
+    public function scopeInStock($query)
+        {
+            return $query->where('stock', '>', 0);
+        }
+
+        public function scopeAvailable($query)
+        {
+            return $query->whereRaw('(stock - COALESCE(reserved_stock, 0)) > 0');
+        }
 }

@@ -253,13 +253,13 @@ Checkout
     // Payment form logger function
     function logPaymentForm() {
         // console.log('=== PAYMENT FORM VALUES ===');
-        
+
         const paymentForm = document.getElementById('payment-form');
         if (!paymentForm) {
             console.error('Payment form not found!');
             return;
         }
-        
+
         // const inputs = {
         //     token: document.querySelector('input[name="_token"]'),
         //     amount: document.getElementById('payment-amount'),
@@ -269,12 +269,12 @@ Checkout
         //     shippingAddressId: document.getElementById('shipping-address-id'),
         //     billingInfoId: document.getElementById('billing-information-id')
         // };
-        
+
         // Log each input value
         Object.entries(inputs).forEach(([key, input]) => {
             console.log(`${key}:`, input?.value || 'EMPTY/NOT FOUND');
         });
-        
+
         console.log('=== END PAYMENT FORM VALUES ===');
     }
 
@@ -286,7 +286,7 @@ Checkout
 
     function refreshBillingSelector() {
         console.log('Refreshing billing selector...');
-        // Implement actual refresh logic if needed  
+        // Implement actual refresh logic if needed
     }
 
     // Prevent multiple initializations
@@ -298,21 +298,21 @@ Checkout
             console.log('Checkout already initialized, skipping...');
             return;
         }
-        
+
         checkoutPageInitialized = true;
         console.log('Checkout page initialized');
         console.log('Xendit available:', typeof Xendit !== 'undefined');
-        
+
         // Log payment form on load
         // setTimeout(() => logPaymentForm(), 500); // Delay to ensure DOM is ready
-        
+
         // Listen for address/billing selection changes (use event delegation)
         document.addEventListener('change', function(e) {
             if (e.target.name === 'shipping_address' || e.target.name === 'billing_information') {
                 console.log('Selection changed:', e.target.name, '=', e.target.value);
             }
         });
-        
+
         // Listen for address events
         ['address-saved', 'address-updated'].forEach(eventType => {
             document.addEventListener(eventType, function(e) {
@@ -320,7 +320,7 @@ Checkout
                 refreshAddressSelector();
             });
         });
-        
+
         // Listen for billing events
         ['billing-saved', 'billing-updated'].forEach(eventType => {
             document.addEventListener(eventType, function(e) {
@@ -328,7 +328,7 @@ Checkout
                 refreshBillingSelector();
             });
         });
-        
+
         // Watch for payment form changes
         const paymentForm = document.getElementById('payment-form');
         if (paymentForm) {

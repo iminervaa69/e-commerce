@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -10,6 +10,7 @@ use App\Models\ProductVariant;
 use App\Models\ProductCategory;
 use App\Models\ProductImage;
 use App\Traits\UploadTrait;
+use App\Http\Controllers\Controller;
 
 class ProductImageController extends Controller
 {
@@ -42,7 +43,7 @@ class ProductImageController extends Controller
             'image_file' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'image_url' => 'exclude_if:image_file,null|string|max:512',
             'product_id' => 'required|integer|exists:products,id',
-            'product_variant_id' => 'nullable|integer|exists:product_variants,id', 
+            'product_variant_id' => 'nullable|integer|exists:product_variants,id',
             'is_primary' => 'nullable|boolean',
         ]);
 

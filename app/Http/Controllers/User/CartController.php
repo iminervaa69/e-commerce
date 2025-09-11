@@ -14,6 +14,7 @@ use App\Models\PromoCodes;
 use App\Models\PromoCodeUsage;
 use App\Models\Wishlist;
 use Illuminate\Support\Number;
+use App\Models\User;
 
 // 11111111111 no longer available
 
@@ -144,7 +145,7 @@ class CartController extends Controller
     public function index(): View
     {
         try {
-            Log::info('=== CART INDEX START ===');
+            // Log::info('=== CART INDEX START ===');
 
             $cartData = $this->cartService->getCartTotals();
 
@@ -156,27 +157,27 @@ class CartController extends Controller
 
             $userId = auth()->id();
 
-            Log::info('Cart Index - Basic Info:', [
-                'subtotal' => $subtotal,
-                'user_id' => $userId
-            ]);
+            // Log::info('Cart Index - Basic Info:', [
+            //     'subtotal' => $subtotal,
+            //     'user_id' => $userId
+            // ]);
 
             // Simple test first
             $totalVouchers = PromoCodes::count();
-            Log::info('Cart Index - Total vouchers in DB:', ['count' => $totalVouchers]);
+            // Log::info('Cart Index - Total vouchers in DB:', ['count' => $totalVouchers]);
 
             $activeVouchers = PromoCodes::where('is_active', 1)->count();
-            Log::info('Cart Index - Active vouchers:', ['count' => $activeVouchers]);
+            // Log::info('Cart Index - Active vouchers:', ['count' => $activeVouchers]);
 
             // Get vouchers step by step
             $step1 = PromoCodes::where('is_active', 1)->get();
-            Log::info('Cart Index - Step 1 (active):', ['count' => $step1->count()]);
+            // Log::info('Cart Index - Step 1 (active):', ['count' => $step1->count()]);
 
             $step2 = $step1->where('starts_at', '<=', now());
-            Log::info('Cart Index - Step 2 (started):', ['count' => $step2->count()]);
+            // Log::info('Cart Index - Step 2 (started):', ['count' => $step2->count()]);
 
             $step3 = $step2->where('expires_at', '>=', now());
-            Log::info('Cart Index - Step 3 (not expired):', ['count' => $step3->count()]);
+            // Log::info('Cart Index - Step 3 (not expired):', ['count' => $step3->count()]);
 
             // Final query
             $vouchersBeforeUserFilter = PromoCodes::where('is_active', 1)
@@ -192,23 +193,23 @@ class CartController extends Controller
                 })
                 ->get();
 
-            Log::info('Cart Index - Vouchers Before User Filter:', [
-                'count' => $vouchersBeforeUserFilter->count(),
-                'voucher_codes' => $vouchersBeforeUserFilter->pluck('code')->toArray()
-            ]);
+            // Log::info('Cart Index - Vouchers Before User Filter:', [
+            //     'count' => $vouchersBeforeUserFilter->count(),
+            //     'voucher_codes' => $vouchersBeforeUserFilter->pluck('code')->toArray()
+            // ]);
 
             $availableVouchers = $vouchersBeforeUserFilter->filter(function($voucher) use ($userId) {
                 $canUse = $voucher->canBeUsedByUser($userId);
-                Log::info('Cart Index - Testing voucher:', [
-                    'code' => $voucher->code,
-                    'can_use' => $canUse
-                ]);
+                // Log::info('Cart Index - Testing voucher:', [
+                //     'code' => $voucher->code,
+                //     'can_use' => $canUse
+                // ]);
                 return $canUse;
             })->values();
 
-            Log::info('Cart Index - Final Available Vouchers:', [
-                'count' => $availableVouchers->count()
-            ]);
+            // Log::info('Cart Index - Final Available Vouchers:', [
+            //     'count' => $availableVouchers->count()
+            // ]);
 
             $discount = 0;
             if ($selectedVoucher) {
@@ -237,7 +238,7 @@ class CartController extends Controller
             $itemCount = $cartData['item_count'] ?? 0;
             $totalItems = $cartData['total_items'] ?? 0;
 
-            Log::info('=== CART INDEX END ===');
+            // Log::info('=== CART INDEX END ===');
 
             return view('frontend.pages.cart.index', compact(
                 'cartItems',
@@ -1139,6 +1140,121 @@ class CartController extends Controller
         }
 
         return true;
+    }
+
+    public function calculateTotals(Request $request)
+    {
+        try {
+            $shippingAddressId = $request->input('shipping_address_id');
+            $billingInformationId = $request->input('billing_information_id');
+            $voucherCode = $request->input('voucher_code');
+
+            // Get cart items
+            $cartItems = auth()->user()->cartItems()->with(['productVariant.product.store'])->get();
+
+            if ($cartItems->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cart is empty'
+                ], 400);
+            }
+
+            // Calculate base subtotal
+            $subtotal = $cartItems->sum(function($item) {
+                return ($item->price_when_added ?? $item->productVariant->price) * $item->quantity;
+            });
+
+            // Calculate shipping cost based on selected address
+            $shippingCost = 5000; // Default
+            if ($shippingAddressId) {
+                $shippingAddress = auth()->user()->addresses()->find($shippingAddressId);
+                if ($shippingAddress) {
+                    // Calculate shipping based on address location
+                    $shippingCost = $this->calculateShippingCost($shippingAddress, $cartItems);
+                }
+            }
+
+            // Calculate tax (example: 10% for certain regions)
+            $tax = 0;
+            if ($shippingAddressId) {
+                $shippingAddress = auth()->user()->addresses()->find($shippingAddressId);
+                if ($shippingAddress && $shippingAddress->province === 'DKI Jakarta') {
+                    $tax = $subtotal * 0.10; // 10% tax for Jakarta
+                }
+            }
+
+            // Apply voucher discount
+            $discount = 0;
+            if ($voucherCode) {
+                $voucher = Voucher::where('code', $voucherCode)
+                    ->where('is_active', true)
+                    ->where('valid_from', '<=', now())
+                    ->where('valid_until', '>=', now())
+                    ->first();
+
+                if ($voucher) {
+                    if ($voucher->discount_type === 'percentage') {
+                        $discount = $subtotal * ($voucher->discount_value / 100);
+                    } else {
+                        $discount = $voucher->discount_value;
+                    }
+
+                    // Apply maximum discount limit
+                    if ($voucher->max_discount_amount && $discount > $voucher->max_discount_amount) {
+                        $discount = $voucher->max_discount_amount;
+                    }
+                }
+            }
+
+            $total = $subtotal + $shippingCost + $tax - $discount;
+
+            return response()->json([
+                'success' => true,
+                'totals' => [
+                    'subtotal' => $subtotal,
+                    'shipping' => $shippingCost,
+                    'tax' => $tax,
+                    'discount' => $discount,
+                    'total' => $total,
+                    'voucher_applied' => $voucherCode && $discount > 0
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to calculate totals: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    private function calculateShippingCost($address, $cartItems)
+    {
+        // Example shipping calculation logic
+        $baseShippingCost = 5000;
+
+        // Different rates for different provinces
+        $shippingRates = [
+            'DKI Jakarta' => 5000,
+            'Jawa Barat' => 7000,
+            'Jawa Tengah' => 8000,
+            'Jawa Timur' => 6000,
+            // Add more provinces
+        ];
+
+        $provinceCost = $shippingRates[$address->province] ?? 10000;
+
+        // Add weight-based calculation if needed
+        $totalWeight = $cartItems->sum(function($item) {
+            return ($item->productVariant->weight ?? 0.1) * $item->quantity;
+        });
+
+        if ($totalWeight > 1) { // > 1kg
+            $provinceCost += ($totalWeight - 1) * 1000; // Additional 1000 per kg
+        }
+
+        return $provinceCost;
     }
 
 }

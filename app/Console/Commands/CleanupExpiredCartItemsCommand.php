@@ -8,25 +8,23 @@ use Carbon\Carbon;
 
 class CleanupExpiredCartItems extends Command
 {
-    protected $signature = 'cart:cleanup 
-                            {--dry-run : Show what would be deleted without actually deleting}
-                            {--force : Skip confirmation prompts}';
-    
+    protected $signature = 'cart:cleanup {--dry-run : Show what would be deleted without actually deleting} {--force : Skip confirmation prompts}';
+
     protected $description = 'Remove expired cart items and clean up old session data';
 
     public function handle()
     {
         $dryRun = $this->option('dry-run');
         $force = $this->option('force');
-        
+
         $this->info('🛒 Starting cart cleanup...');
-        
+
         // Clean expired cart items
         $this->cleanExpiredItems($dryRun, $force);
-        
+
         // Clean old soft-deleted items
         $this->cleanOldSoftDeletedItems($dryRun, $force);
-        
+
         $this->info('✅ Cart cleanup completed!');
     }
 
@@ -36,7 +34,7 @@ class CleanupExpiredCartItems extends Command
     private function cleanExpiredItems(bool $dryRun, bool $force): void
     {
         $expiredItems = CartItem::expired()->get();
-        
+
         if ($expiredItems->isEmpty()) {
             $this->info('ℹ️  No expired cart items found.');
             return;
@@ -51,7 +49,7 @@ class CleanupExpiredCartItems extends Command
         if ($guestItems->isNotEmpty()) {
             $this->line("  - {$guestItems->count()} guest cart items");
         }
-        
+
         if ($userItems->isNotEmpty()) {
             $this->line("  - {$userItems->count()} user cart items");
         }
@@ -77,7 +75,7 @@ class CleanupExpiredCartItems extends Command
 
         // Perform soft delete
         $deletedCount = CartItem::expired()->delete();
-        
+
         $this->info("🗑️  Successfully soft-deleted {$deletedCount} expired cart items.");
     }
 
@@ -126,7 +124,7 @@ class CleanupExpiredCartItems extends Command
         $permanentlyDeletedCount = CartItem::onlyTrashed()
             ->where('deleted_at', '<', $cutoffDate)
             ->forceDelete();
-                
+
         $this->info("🔥 Permanently deleted {$permanentlyDeletedCount} old cart items.");
     }
 }

@@ -5,7 +5,6 @@ use App\Http\Controllers\User\HomeController;
 use App\Http\Controllers\User\CartController as UserCartController;
 use App\Http\Controllers\User\ProductController as UserProductController;
 use App\Http\Controllers\User\CheckoutController;
-use App\Http\Controllers\User\PaymentController;
 use App\Http\Controllers\User\AddressController;
 use App\Http\Controllers\User\WebhookController;
 use App\Http\Controllers\User\BillingInformationController;
@@ -36,6 +35,9 @@ use App\Http\Controllers\Auth\ConfirmablePasswordController;
 // Homepage - accessible to everyone
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Route::post('/checkout/calculate-totals', [CheckoutController::class, 'calculateTotals'])->name('checkout.calculate-totals');
+
+
 // Product browsing - accessible to everyone
 Route::get('/product/{slug}', [UserProductController::class, 'show'])->name('product.show');
 Route::get('/product/{slug}/reviews', [UserProductController::class, 'reviews'])->name('product.reviews');
@@ -47,6 +49,7 @@ Route::get('/stores', [AdminStoreController::class, 'index'])->name('stores.inde
 Route::get('/store/{slug}', [AdminStoreController::class, 'show'])->name('store.show');
 
 // Cart routes - accessible to everyone (guest cart uses session)
+// Cart routes - accessible to everyone (guest cart uses session)
 Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/', [UserCartController::class, 'index'])->name('index');
     Route::post('/add', [UserCartController::class, 'addItem'])->name('add');
@@ -56,10 +59,12 @@ Route::prefix('cart')->name('cart.')->group(function () {
     Route::get('/data', [UserCartController::class, 'getCartData'])->name('data');
     Route::get('/count', [UserCartController::class, 'getCartCount'])->name('count');
 
-    // Add this line:
+    // ADD THESE MISSING ROUTES:
+    Route::post('/calculate-totals', [UserCartController::class, 'calculateTotals'])->name('calculate-totals');
+    Route::post('/calculate-shipping', [UserCartController::class, 'calculateShippingCost'])->name('calculate-shipping');
+
     Route::post('/proceed-to-checkout', [UserCartController::class, 'proceedToCheckout'])->name('proceed-to-checkout');
 });
-
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION ROUTES
@@ -118,20 +123,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [CheckoutController::class, 'index'])->name('index');
         Route::get('/success', [CheckoutController::class, 'success'])->name('success');
         Route::get('/failed', [CheckoutController::class, 'failed'])->name('failed');
-    });
 
-    // PAYMENT - Only authenticated users can make payments
-    Route::prefix('payment')->name('payment.')->group(function () {
-        Route::post('/card', [PaymentController::class, 'processCardPayment'])->name('card');
-        Route::post('/ewallet', [PaymentController::class, 'processEwalletPayment'])->name('ewallet');
-        Route::get('/success', [PaymentController::class, 'paymentSuccess'])->name('success');
-        Route::get('/failed', [PaymentController::class, 'paymentFailed'])->name('failed');
-    });
-
-    // E-wallet redirect URLs (for authenticated users)
-    Route::prefix('ewallet')->name('ewallet.')->group(function () {
-        Route::get('/success', [PaymentController::class, 'ewalletSuccess'])->name('success');
-        Route::get('/failed', [PaymentController::class, 'ewalletFailed'])->name('failed');
+        // NEW: Direct checkout payment methods
+        Route::post('/process-card', [CheckoutController::class, 'processCardPayment'])->name('process.card');
+        Route::post('/process-ewallet', [CheckoutController::class, 'processEwalletPayment'])->name('process.ewallet');
+        Route::post('/refresh-totals', [CheckoutController::class, 'refreshTotals'])->name('refresh.totals');
     });
 
     // ADDRESS MANAGEMENT - Only for authenticated users
@@ -162,12 +158,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     // USER PROFILE & ORDERS
-    Route::prefix('profile')->name('profile.')->group(function () {
-        Route::get('/', [UserController::class, 'profile'])->name('index');
-        Route::put('/', [UserController::class, 'updateProfile'])->name('update');
-        Route::get('/orders', [UserController::class, 'orders'])->name('orders');
-        Route::get('/orders/{order}', [UserController::class, 'orderDetail'])->name('order.detail');
-    });
+    // Route::prefix('profile')->name('profile.')->group(function () {
+    //     Route::get('/', [UserController::class, 'profile'])->name('index');
+    //     Route::put('/', [UserController::class, 'updateProfile'])->name('update');
+    //     Route::get('/orders', [UserController::class, 'orders'])->name('orders');
+    //     Route::get('/orders/{order}', [UserController::class, 'orderDetail'])->name('order.detail');
+    // });
 });
 
 /*
@@ -177,52 +173,40 @@ Route::middleware(['auth', 'verified'])->group(function () {
 */
 
 // For now, using basic auth middleware - you'll replace this with admin auth later
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Admin Dashboard
-    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+// Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+//     // Admin Dashboard
+//     // Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
-    // Product Management
-    Route::resource('products', AdminProductController::class);
-    Route::resource('products.variants', ProductVariantController::class);
-    Route::resource('products.images', ProductImageController::class);
-    Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants'])
-        ->name('products.variants.api');
+//     // Product Management
+//     Route::resource('products', AdminProductController::class);
+//     Route::resource('products.variants', ProductVariantController::class);
+//     Route::resource('products.images', ProductImageController::class);
+//     Route::get('/api/product/{id}/variants', [ProductVariantController::class, 'getVariants'])
+//         ->name('products.variants.api');
 
-    // Store Management
-    Route::resource('stores', AdminStoreController::class);
+//     // Store Management
+//     Route::resource('stores', AdminStoreController::class);
 
-    // Category Management
-    Route::resource('categories', AdminCategoryController::class);
+//     // Category Management
+//     Route::resource('categories', AdminCategoryController::class);
 
-    // Order Management
-    Route::prefix('orders')->name('orders.')->group(function () {
-        Route::get('/', [AdminOrderController::class, 'index'])->name('index');
-        Route::get('/{order}', [AdminOrderController::class, 'show'])->name('show');
-        Route::put('/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('update-status');
-    });
+//     // Order Management
+//     Route::prefix('orders')->name('orders.')->group(function () {
+//         Route::get('/', [AdminOrderController::class, 'index'])->name('index');
+//         Route::get('/{order}', [AdminOrderController::class, 'show'])->name('show');
+//         Route::put('/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('update-status');
+//     });
 
-    // User Management
-    Route::resource('users', AdminUserController::class)->only(['index', 'show', 'edit', 'update']);
+//     // User Management
+//     Route::resource('users', AdminUserController::class)->only(['index', 'show', 'edit', 'update']);
 
-    // Reports & Analytics
-    Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/sales', [AdminReportController::class, 'sales'])->name('sales');
-        Route::get('/products', [AdminReportController::class, 'products'])->name('products');
-        Route::get('/users', [AdminReportController::class, 'users'])->name('users');
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| WEBHOOK ROUTES (No authentication required)
-|--------------------------------------------------------------------------
-*/
-
-// Xendit webhook - must be accessible without authentication
-Route::post('/webhook/xendit', [WebhookController::class, 'xenditWebhook'])
-    ->name('webhook.xendit')
-    ->withoutMiddleware(['auth', 'verified'])
-    ->middleware('throttle:1000,1');
+//     // Reports & Analytics
+//     Route::prefix('reports')->name('reports.')->group(function () {
+//         Route::get('/sales', [AdminReportController::class, 'sales'])->name('sales');
+//         Route::get('/products', [AdminReportController::class, 'products'])->name('products');
+//         Route::get('/users', [AdminReportController::class, 'users'])->name('users');
+//     });
+// });
 
 /*
 |--------------------------------------------------------------------------
@@ -237,10 +221,10 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('/search/products', [UserProductController::class, 'search']);
 
     // Protected API (auth required)
-    Route::middleware('auth')->group(function () {
-        Route::get('/user/orders', [UserController::class, 'getOrdersApi']);
-        Route::get('/user/profile', [UserController::class, 'getProfileApi']);
-    });
+    // Route::middleware('auth')->group(function () {
+    //     Route::get('/user/orders', [UserController::class, 'getOrdersApi']);
+    //     Route::get('/user/profile', [UserController::class, 'getProfileApi']);
+    // });
 });
 
 /*

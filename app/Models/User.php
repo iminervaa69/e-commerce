@@ -58,7 +58,7 @@ class User extends Authenticatable
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($user) {
             if (empty($user->slug)) {
                 $user->slug = $user->generateUniqueSlug($user->name);
@@ -173,5 +173,13 @@ class User extends Authenticatable
     public function defaultBillingInformation()
     {
         return $this->hasOne(BillingInformation::class)->where('is_default', true);
+    }
+
+    /**
+ * Get the cart items for the user (camelCase alias)
+ */
+    public function cartItems()
+    {
+        return $this->cart_items();
     }
 }
