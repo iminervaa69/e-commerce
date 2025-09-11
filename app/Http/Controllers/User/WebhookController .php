@@ -278,7 +278,7 @@ class WebhookController extends Controller
             $expectedAmount = $transaction->total_amount;
             $receivedAmount = $payload['amount'] ?? $payload['paid_amount'] ?? 0;
 
-            if (abs($receivedAmount - $expectedAmount) > 1) { // Allow 1 rupiah difference for rounding
+            if (abs($receivedAmount - $expectedAmount) > 1) {
                 Log::error('Payment amount mismatch', [
                     'transaction_id' => $transaction->id,
                     'expected' => $expectedAmount,
@@ -287,7 +287,39 @@ class WebhookController extends Controller
                 return response()->json(['message' => 'Amount mismatch'], 400);
             }
 
-            // Prepare update data with debug logging
+            // NEW: Get cart items from checkout session for this transaction
+            $cartItems = $this->getCartItemsFromTransaction($transaction);
+            
+            if ($cartItems->isEmpty()) {
+                Log::error('No cart items found for transaction', [
+                    'transaction_id' => $transaction->id
+                ]);
+                return response()->json(['message' => 'Cart items not found'], 400);
+            }
+
+            // NEW: Validate and reserve inventory
+            $reservationResult = $this->reserveInventory($cartItems);
+            if (!$reservationResult['success']) {
+                Log::error('Inventory reservation failed in webhook', [
+                    'transaction_id' => $transaction->id,
+                    'reason' => $reservationResult['message']
+                ]);
+                
+                // Mark transaction as failed due to inventory issues
+                $transaction->update([
+                    'status' => 'failed',
+                    'failure_reason' => 'Inventory not available: ' . $reservationResult['message'],
+                    'webhook_data' => $payload
+                ]);
+                
+                DB::commit();
+                return response()->json(['message' => 'Inventory not available'], 400);
+            }
+
+            // NEW: Create orders from cart items
+            $orders = $this->createOrdersFromCart($cartItems, $transaction);
+
+            // Update transaction
             $updateData = [
                 'status' => 'completed',
                 'paid_at' => now(),
@@ -295,57 +327,32 @@ class WebhookController extends Controller
                 'webhook_data' => $payload
             ];
 
-            // Only update xendit_id if it's not already set or if payload has a different value
             if (empty($transaction->xendit_id) || ($payload['id'] ?? null) !== $transaction->xendit_id) {
                 $updateData['xendit_id'] = $payload['id'] ?? null;
             }
 
-            // DEBUG: Log what we're trying to update
-            Log::info('About to update transaction', [
-                'transaction_id' => $transaction->id,
-                'update_data' => $updateData,
-                'current_values' => [
-                    'status' => $transaction->status,
-                    'paid_at' => $transaction->paid_at,
-                    'paid_amount' => $transaction->paid_amount,
-                    'webhook_data' => $transaction->webhook_data ? 'exists' : 'null',
-                ]
-            ]);
+            $transaction->update($updateData);
 
-            // Update transaction
-            $updateResult = $transaction->update($updateData);
-
-            // DEBUG: Log update result
-            Log::info('Transaction update result', [
-                'transaction_id' => $transaction->id,
-                'update_successful' => $updateResult,
-                'after_update_values' => [
-                    'status' => $transaction->fresh()->status,
-                    'paid_at' => $transaction->fresh()->paid_at,
-                    'paid_amount' => $transaction->fresh()->paid_amount,
-                    'webhook_data' => $transaction->fresh()->webhook_data ? 'exists' : 'null',
-                ]
-            ]);
-
-            // Update orders
-            $orders = $transaction->orders()->get();
+            // Update orders to confirmed
             foreach ($orders as $order) {
                 $order->update([
                     'status' => 'confirmed',
                     'confirmed_at' => now()
                 ]);
-
-                Log::info('Order confirmed', ['order_id' => $order->id]);
             }
 
-            // Process inventory and cart
+            // NEW: Commit inventory deduction
             $this->commitInventoryDeduction($transaction);
 
+            // NEW: Clear user cart
             if ($transaction->user_id) {
                 $this->clearUserCart($transaction->user_id);
             }
 
-            // Send notifications (with error handling)
+            // Clear checkout session
+            session()->forget('checkout_items');
+
+            // Send notifications
             try {
                 $this->sendPaymentConfirmation($transaction);
             } catch (\Exception $e) {
@@ -357,7 +364,7 @@ class WebhookController extends Controller
 
             DB::commit();
 
-            Log::info('Payment success processed', [
+            Log::info('Payment success fully processed', [
                 'transaction_id' => $transaction->id,
                 'amount' => $receivedAmount,
                 'orders_count' => $orders->count()
@@ -750,6 +757,142 @@ class WebhookController extends Controller
                 'error' => $e->getMessage()
             ]);
         }
+    }
+
+    private function getCartItemsFromTransaction($transaction)
+    {
+        try {
+            // Option 1: If you store cart_item_ids in transaction metadata
+            if ($transaction->metadata && isset($transaction->metadata['cart_item_ids'])) {
+                $cartItemIds = $transaction->metadata['cart_item_ids'];
+                return CartItem::whereIn('id', $cartItemIds)->with(['productVariant.product.store'])->get();
+            }
+
+            // Option 2: Get from user's current cart (less reliable)
+            if ($transaction->user_id) {
+                return CartItem::where('user_id', $transaction->user_id)
+                    ->with(['productVariant.product.store'])
+                    ->get();
+            }
+
+            // Option 3: Reconstruct from existing orders if any exist
+            $existingOrders = $transaction->orders()->with(['orderItems.productVariant'])->get();
+            if ($existingOrders->isNotEmpty()) {
+                // Convert order items back to cart items structure for consistency
+                $cartItems = collect();
+                foreach ($existingOrders as $order) {
+                    foreach ($order->orderItems as $orderItem) {
+                        // Create a pseudo cart item for processing
+                        $cartItems->push((object)[
+                            'id' => 'order_item_' . $orderItem->id,
+                            'product_variant_id' => $orderItem->product_variant_id,
+                            'quantity' => $orderItem->quantity,
+                            'price_when_added' => $orderItem->unit_price,
+                            'productVariant' => $orderItem->productVariant
+                        ]);
+                    }
+                }
+                return $cartItems;
+            }
+
+            Log::warning('Unable to retrieve cart items for transaction', [
+                'transaction_id' => $transaction->id
+            ]);
+            
+            return collect();
+
+        } catch (\Exception $e) {
+            Log::error('Error retrieving cart items from transaction', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage()
+            ]);
+            return collect();
+        }
+    }
+
+    private function reserveInventory($cartItems)
+    {
+        try {
+            foreach ($cartItems as $item) {
+                $variant = $item->productVariant;
+
+                if ($variant->stock < $item->quantity) {
+                    return ['success' => false, 'message' => "Insufficient stock for {$variant->product->name}"];
+                }
+
+                $variant->refresh();
+                if ($variant->stock < $item->quantity) {
+                    return ['success' => false, 'message' => "Stock changed during checkout for {$variant->product->name}"];
+                }
+            }
+
+            return ['success' => true];
+        } catch (\Exception $e) {
+            return ['success' => false, 'message' => 'Failed to reserve inventory'];
+        }
+    }
+
+    private function createOrdersFromCart($cartItems, $transaction)
+    {
+        $itemsByStore = $cartItems->groupBy(function($item) {
+            return $item->productVariant->product->store_id ?? 0;
+        });
+
+        $orders = collect();
+
+        foreach ($itemsByStore as $storeId => $storeItems) {
+            $storeSubtotal = $storeItems->sum(function($item) {
+                return $item->quantity * $item->price_when_added;
+            });
+
+            $storeShipping = 5000;
+            $storeTax = $storeSubtotal * 0.11;
+            $storeTotal = $storeSubtotal + $storeShipping + $storeTax;
+
+            $order = Order::create([
+                'transaction_id' => $transaction->id,
+                'store_id' => $storeId,
+                'order_number' => 'ORD_' . time() . '_' . Str::random(6),
+                'subtotal' => $storeSubtotal,
+                'shipping_cost' => $storeShipping,
+                'tax_amount' => $storeTax,
+                'total_amount' => $storeTotal,
+                'status' => 'pending'
+            ]);
+
+            foreach ($storeItems as $cartItem) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_variant_id' => $cartItem->product_variant_id,
+                    'quantity' => $cartItem->quantity,
+                    'unit_price' => $cartItem->price_when_added,
+                    'total_price' => $cartItem->quantity * $cartItem->price_when_added
+                ]);
+            }
+
+            $orders->push($order);
+        }
+
+        Log::info('Orders created for transaction', [
+            'transaction_id' => $transaction->id,
+            'order_count' => $orders->count(),
+            'order_ids' => $orders->pluck('id')->toArray()
+        ]);
+
+        return $orders;
+    }
+
+    private function clearCart($user = null, $sessionId = null)
+    {
+        $query = CartItem::query();
+
+        if ($user) {
+            $query->where('user_id', $user->id);
+        } else {
+            $query->where('session_id', $sessionId);
+        }
+
+        $query->delete();
     }
 
 // FIXED: clearUserCart with better error handling

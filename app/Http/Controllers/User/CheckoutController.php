@@ -283,7 +283,7 @@ class CheckoutController extends Controller
                 return response()->json(['success' => false, 'message' => 'Invalid billing information'], 400);
             }
 
-            // Validate both addresses separately
+            // Validate address
             $address = Address::where('id', $validated['address_id'])
                 ->where('user_id', $user->id)
                 ->first();
@@ -311,7 +311,7 @@ class CheckoutController extends Controller
                 return response()->json(['success' => false, 'message' => 'Cart validation failed: ' . $cartValidation['message']], 400);
             }
 
-            // Prepare transaction data with billing information
+            // Prepare transaction data
             $transactionData = [
                 'token_id' => $validated['token_id'],
                 'authentication_id' => $validated['authentication_id'],
@@ -323,11 +323,8 @@ class CheckoutController extends Controller
                 'address_id' => $validated['address_id'],
             ];
 
-            // Reserve inventory (will be committed by webhook)
-            $reservationResult = $this->reserveInventory($cartItems);
-            if (!$reservationResult['success']) {
-                return response()->json(['success' => false, 'message' => 'Inventory reservation failed: ' . $reservationResult['message']], 400);
-            }
+            // REMOVED: inventory reservation - will be handled in webhook
+            // REMOVED: createOrdersFromCart - will be handled in webhook
 
             // Create transaction record
             $transaction = $this->createTransaction($transactionData, 'card', $address, $billingInfo);
@@ -339,37 +336,20 @@ class CheckoutController extends Controller
                 // Update transaction with Xendit response
                 $transaction->update([
                     'xendit_id' => $paymentResult['xendit_id'] ?? null,
-                    'status' => $paymentResult['status'], // Will be 'pending' for AUTHORIZED
+                    'status' => 'pending', // Always pending, webhook will confirm
                     'xendit_response' => $paymentResult['response']
                 ]);
 
                 DB::commit();
 
-                // Different messages based on status
-                if ($paymentResult['status'] === 'pending') {
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Payment authorized, processing...',
-                        'redirect_url' => route('checkout.success', ['transaction' => $transaction->reference_id])
-                    ]);
-                } else {
-                    // For immediate captures (fallback)
-                    $this->commitInventoryReservation($cartItems);
-                    $this->createOrdersFromCart($cartItems, $transaction);
-                    $this->clearCart($user, session()->getId());
-                    session()->forget('checkout_items');
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Payment successful',
-                        'redirect_url' => route('checkout.success', ['transaction' => $transaction->reference_id])
-                    ]);
-                }
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment processing...',
+                    'transaction_id' => $transaction->reference_id,
+                    'poll_url' => route('checkout.success', $transaction->reference_id)
+                ]);
 
             } else {
-                // Release inventory reservation
-                $this->releaseInventoryReservation($cartItems);
-
                 // Update transaction status to failed
                 $transaction->update([
                     'status' => 'failed',
@@ -394,6 +374,22 @@ class CheckoutController extends Controller
         }
     }
 
+    public function checkPaymentStatus($transactionRef)
+    {
+        $transaction = Transaction::where('reference_id', $transactionRef)->first();
+
+        if (!$transaction) {
+            return response()->json(['success' => false, 'message' => 'Transaction not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $transaction->status,
+            'redirect_url' => $transaction->status === 'completed' 
+                ? route('checkout.success', ['transaction' => $transactionRef])
+                : ($transaction->status === 'failed' ? route('checkout.failed') : null)
+        ]);
+    }
     /**
      * Unified Xendit card payment processing
      */
@@ -856,36 +852,6 @@ class CheckoutController extends Controller
         }
     }
 
-    private function reserveInventory($cartItems)
-    {
-        try {
-            foreach ($cartItems as $item) {
-                $variant = $item->productVariant;
-
-                if ($variant->stock < $item->quantity) {
-                    return ['success' => false, 'message' => "Insufficient stock for {$variant->product->name}"];
-                }
-
-                $variant->refresh();
-                if ($variant->stock < $item->quantity) {
-                    return ['success' => false, 'message' => "Stock changed during checkout for {$variant->product->name}"];
-                }
-            }
-
-            return ['success' => true];
-        } catch (\Exception $e) {
-            return ['success' => false, 'message' => 'Failed to reserve inventory'];
-        }
-    }
-
-    private function commitInventoryReservation($cartItems)
-    {
-        foreach ($cartItems as $item) {
-            $variant = $item->productVariant;
-            $variant->decrement('stock', $item->quantity);
-        }
-    }
-
     private function releaseInventoryReservation($cartItems)
     {
         // If you implement reserved_stock column, release it here
@@ -965,69 +931,6 @@ class CheckoutController extends Controller
         ];
 
         return implode(', ', array_filter($addressParts));
-    }
-
-    private function createOrdersFromCart($cartItems, $transaction)
-    {
-        $itemsByStore = $cartItems->groupBy(function($item) {
-            return $item->productVariant->product->store_id ?? 0;
-        });
-
-        $orders = collect();
-
-        foreach ($itemsByStore as $storeId => $storeItems) {
-            $storeSubtotal = $storeItems->sum(function($item) {
-                return $item->quantity * $item->price_when_added;
-            });
-
-            $storeShipping = 5000;
-            $storeTax = $storeSubtotal * 0.11;
-            $storeTotal = $storeSubtotal + $storeShipping + $storeTax;
-
-            $order = Order::create([
-                'transaction_id' => $transaction->id,
-                'store_id' => $storeId,
-                'order_number' => 'ORD_' . time() . '_' . Str::random(6),
-                'subtotal' => $storeSubtotal,
-                'shipping_cost' => $storeShipping,
-                'tax_amount' => $storeTax,
-                'total_amount' => $storeTotal,
-                'status' => 'pending'
-            ]);
-
-            foreach ($storeItems as $cartItem) {
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_variant_id' => $cartItem->product_variant_id,
-                    'quantity' => $cartItem->quantity,
-                    'unit_price' => $cartItem->price_when_added,
-                    'total_price' => $cartItem->quantity * $cartItem->price_when_added
-                ]);
-            }
-
-            $orders->push($order);
-        }
-
-        Log::info('Orders created for transaction', [
-            'transaction_id' => $transaction->id,
-            'order_count' => $orders->count(),
-            'order_ids' => $orders->pluck('id')->toArray()
-        ]);
-
-        return $orders;
-    }
-
-    private function clearCart($user = null, $sessionId = null)
-    {
-        $query = CartItem::query();
-
-        if ($user) {
-            $query->where('user_id', $user->id);
-        } else {
-            $query->where('session_id', $sessionId);
-        }
-
-        $query->delete();
     }
 
     // Success and failure pages
