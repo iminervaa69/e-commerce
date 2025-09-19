@@ -14,8 +14,6 @@ class WebhookController extends Controller
 {
     public function xenditWebhook(Request $request)
     {
-        Log::emergency('🔥 XENDIT WEBHOOK METHOD CALLED 🔥'); // This will definitely show up
-        // Log comprehensive webhook data
         Log::info('=== XENDIT WEBHOOK RECEIVED ===', [
             'timestamp' => now()->toDateTimeString(),
             'method' => $request->method(),
@@ -28,14 +26,12 @@ class WebhookController extends Controller
         ]);
 
         try {
-            // STEP 1: Verify webhook signature (CRITICAL - don't bypass in production)
             if (!$this->verifyWebhookSignature($request)) {
                 Log::warning('Invalid webhook signature', [
                     'ip' => $request->ip(),
                     'headers' => $request->headers->all()
                 ]);
 
-                // REMOVE this bypass in production!
                 if (!app()->environment(['local', 'development'])) {
                     return response()->json(['message' => 'Invalid signature'], 401);
                 }
@@ -44,7 +40,6 @@ class WebhookController extends Controller
 
             $payload = $request->all();
 
-            // STEP 2: Determine event type with better fallback logic
             $eventType = $this->determineEventType($payload);
 
             if (!$eventType) {
@@ -57,7 +52,6 @@ class WebhookController extends Controller
                 'handler' => $this->getHandlerName($eventType)
             ]);
 
-            // STEP 3: Route to appropriate handler
             return $this->routeWebhookEvent($eventType, $payload);
 
         } catch (\Exception $e) {

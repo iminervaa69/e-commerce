@@ -28,16 +28,12 @@ class CheckoutController extends Controller
 {
     public function __construct()
     {
-        // Configure SSL certificate for Xendit API calls
         $this->configureXenditSSL();
     }
 
-    /**
-     * Configure SSL certificate for Xendit API calls
-     */
     private function configureXenditSSL()
     {
-        $certPath = storage_path('app/certificates/cacert-2025-08-12.pem');
+        $certPath = storage_path('app/certificates/cacert-2025-09-09.pem');
 
         if (file_exists($certPath)) {
             Http::globalOptions(['verify' => $certPath]);
@@ -52,9 +48,6 @@ class CheckoutController extends Controller
         }
     }
 
-    /**
-     * Enhanced checkout index with session validation
-     */
     public function index()
     {
         // Get checkout data from session (prepared by cart's proceedToCheckout)
@@ -107,11 +100,6 @@ class CheckoutController extends Controller
         ]);
     }
 
-
-
-    /**
-     * Get billing information for authenticated user
-     */
     private function getBillingInformation($user, $billingInformationId)
     {
         return DB::table('billing_information')
@@ -120,136 +108,6 @@ class CheckoutController extends Controller
             ->first();
     }
 
-    /**
-     * Process e-wallet payment (unified method)
-     */
-    public function processEwalletPayment(Request $request)
-    {
-        $validated = $request->validate([
-            'channel_code' => 'required|string|in:OVO,DANA,LINKAJA,SHOPEEPAY,GOPAY',
-            'address_id' => 'required|exists:addresses,id',
-            'billing_information_id' => 'required|exists:billing_information,id',
-        ], [
-            'channel_code.in' => 'Please select a valid e-wallet option',
-            'address_id.required' => 'Please select an address',
-            'billing_information_id.required' => 'Please select billing information',
-            'billing_information_id.exists' => 'Selected billing information is invalid',
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
-            }
-
-            // Get billing information using Eloquent model
-            $billingInfo = BillingInformation::where('id', $validated['billing_information_id'])
-                ->where('user_id', $user->id)
-                ->first();
-
-            if (!$billingInfo) {
-                return response()->json(['success' => false, 'message' => 'Invalid billing information'], 400);
-            }
-
-            // Get single address using Eloquent model
-            $address = Address::where('id', $validated['address_id'])
-                ->where('user_id', $user->id)
-                ->first();
-
-            if (!$address) {
-                return response()->json(['success' => false, 'message' => 'Invalid address selected'], 400);
-            }
-
-            // Use checkout session data
-            $checkoutData = session('checkout_items');
-            if (!$checkoutData) {
-                return response()->json(['success' => false, 'message' => 'Checkout session expired'], 400);
-            }
-
-            $cartItemIds = collect($checkoutData['items'])->pluck('cart_item_id');
-            $cartItems = CartItem::whereIn('id', $cartItemIds)->with(['productVariant.product.store'])->get();
-
-            if ($cartItems->isEmpty()) {
-                return response()->json(['success' => false, 'message' => 'Cart is empty'], 400);
-            }
-
-            // Validate cart and use session total
-            $cartValidation = $this->validateCartItems($cartItems);
-            if (!$cartValidation['valid']) {
-                return response()->json(['success' => false, 'message' => 'Cart validation failed: ' . $cartValidation['message']], 400);
-            }
-
-            // Prepare data with billing info and normalized phone
-            $paymentData = [
-                'channel_code' => $validated['channel_code'],
-                'amount' => $checkoutData['total'],
-                'first_name' => $billingInfo->first_name,
-                'last_name' => $billingInfo->last_name,
-                'email' => $billingInfo->email,
-                'phone' => $this->normalizePhoneNumber($billingInfo->phone),
-                'address_id' => $validated['address_id'],
-            ];
-
-            // Reserve inventory
-            $reservationResult = $this->reserveInventory($cartItems);
-            if (!$reservationResult['success']) {
-                return response()->json(['success' => false, 'message' => 'Inventory reservation failed: ' . $reservationResult['message']], 400);
-            }
-
-            // Create transaction record
-            $transaction = $this->createTransaction($paymentData, 'ewallet', $address, $billingInfo);
-
-            // Process payment with Xendit
-            $paymentResult = $this->processXenditEwalletPayment($paymentData, $transaction);
-
-            if ($paymentResult['success']) {
-                // Update transaction with Xendit response
-                $transaction->update([
-                    'xendit_id' => $paymentResult['xendit_id'] ?? null,
-                    'status' => 'pending',
-                    'xendit_response' => $paymentResult['response']
-                ]);
-
-                $orders = $this->createOrdersFromCart($cartItems, $transaction);
-
-                DB::commit();
-
-                return response()->json([
-                    'success' => true,
-                    'checkout_url' => $paymentResult['checkout_url']
-                ]);
-            } else {
-                $this->releaseInventoryReservation($cartItems);
-
-                $transaction->update([
-                    'status' => 'failed',
-                    'xendit_response' => $paymentResult['response']
-                ]);
-
-                DB::rollback();
-
-                return response()->json([
-                    'success' => false,
-                    'message' => $paymentResult['message'] ?? 'Payment failed'
-                ]);
-            }
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollback();
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            DB::rollback();
-            Log::error('E-wallet payment error: ' . $e->getMessage());
-            return response()->json(['success' => false, 'message' => 'Payment processing failed'], 500);
-        }
-    }
-
-        /**
-     * Process card payment (unified method)
-     */
-    //validateUserAddresses
     public function processCardPayment(Request $request)
     {
         $validated = $request->validate([
@@ -374,25 +232,6 @@ class CheckoutController extends Controller
         }
     }
 
-    public function checkPaymentStatus($transactionRef)
-    {
-        $transaction = Transaction::where('reference_id', $transactionRef)->first();
-
-        if (!$transaction) {
-            return response()->json(['success' => false, 'message' => 'Transaction not found'], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'status' => $transaction->status,
-            'redirect_url' => $transaction->status === 'completed' 
-                ? route('checkout.success', ['transaction' => $transactionRef])
-                : ($transaction->status === 'failed' ? route('checkout.failed') : null)
-        ]);
-    }
-    /**
-     * Unified Xendit card payment processing
-     */
     private function processXenditCardPayment($validatedData, $transaction)
     {
         try {
@@ -410,7 +249,7 @@ class CheckoutController extends Controller
                 'token_id' => $validatedData['token_id'],
                 'authentication_id' => $validatedData['authentication_id'],
                 'currency' => 'IDR',
-                'capture' => false, // This makes it start as AUTHORIZED (pending)
+                'capture' => true,
                 'descriptor' => config('app.name', 'Your Store'),
                 'external_id' => $referenceId,
                 'billing_details' => [
@@ -431,7 +270,6 @@ class CheckoutController extends Controller
             $paymentResponse = Xendivel::payWithCard($paymentRequest);
             $payment = $paymentResponse->getResponse();
 
-            // Convert stdClass to array if needed
             if (is_object($payment)) {
                 $payment = json_decode(json_encode($payment), true);
             }
@@ -442,13 +280,11 @@ class CheckoutController extends Controller
                 'status' => $payment['status'] ?? 'no_status',
             ]);
 
-            // Handle different scenarios
             $successStatuses = ['CAPTURED', 'PAID', 'SUCCEEDED'];
             $pendingStatuses = ['AUTHORIZED'];
             $currentStatus = $payment['status'] ?? '';
 
             if (in_array($currentStatus, $pendingStatuses)) {
-                // Payment authorized but not captured - webhook will handle completion
                 return [
                     'success' => true,
                     'xendit_id' => $payment['id'],
@@ -456,7 +292,6 @@ class CheckoutController extends Controller
                     'response' => $payment
                 ];
             } elseif (in_array($currentStatus, $successStatuses)) {
-                // Immediate capture (fallback) - handle completion here
                 return [
                     'success' => true,
                     'xendit_id' => $payment['id'],
@@ -485,9 +320,146 @@ class CheckoutController extends Controller
         }
     }
 
-    /**
-     * Unified Xendit e-wallet payment processing
-     */
+    public function checkPaymentStatus($transactionRef)
+    {
+        $transaction = Transaction::where('reference_id', $transactionRef)->first();
+
+        if (!$transaction) {
+            return response()->json(['success' => false, 'message' => 'Transaction not found'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $transaction->status,
+            'redirect_url' => $transaction->status === 'completed' 
+                ? route('checkout.success', ['transaction' => $transactionRef])
+                : ($transaction->status === 'failed' ? route('checkout.failed') : null)
+        ]);
+    }
+
+    public function processEwalletPayment(Request $request)
+    {
+        $validated = $request->validate([
+            'channel_code' => 'required|string|in:OVO,DANA,LINKAJA,SHOPEEPAY,GOPAY',
+            'address_id' => 'required|exists:addresses,id',
+            'billing_information_id' => 'required|exists:billing_information,id',
+        ], [
+            'channel_code.in' => 'Please select a valid e-wallet option',
+            'address_id.required' => 'Please select an address',
+            'billing_information_id.required' => 'Please select billing information',
+            'billing_information_id.exists' => 'Selected billing information is invalid',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
+            }
+
+            // Get billing information using Eloquent model
+            $billingInfo = BillingInformation::where('id', $validated['billing_information_id'])
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$billingInfo) {
+                return response()->json(['success' => false, 'message' => 'Invalid billing information'], 400);
+            }
+
+            // Get single address using Eloquent model
+            $address = Address::where('id', $validated['address_id'])
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$address) {
+                return response()->json(['success' => false, 'message' => 'Invalid address selected'], 400);
+            }
+
+            // Use checkout session data
+            $checkoutData = session('checkout_items');
+            if (!$checkoutData) {
+                return response()->json(['success' => false, 'message' => 'Checkout session expired'], 400);
+            }
+
+            $cartItemIds = collect($checkoutData['items'])->pluck('cart_item_id');
+            $cartItems = CartItem::whereIn('id', $cartItemIds)->with(['productVariant.product.store'])->get();
+
+            if ($cartItems->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'Cart is empty'], 400);
+            }
+
+            // Validate cart and use session total
+            $cartValidation = $this->validateCartItems($cartItems);
+            if (!$cartValidation['valid']) {
+                return response()->json(['success' => false, 'message' => 'Cart validation failed: ' . $cartValidation['message']], 400);
+            }
+
+            // Prepare data with billing info and normalized phone
+            $paymentData = [
+                'channel_code' => $validated['channel_code'],
+                'amount' => $checkoutData['total'],
+                'first_name' => $billingInfo->first_name,
+                'last_name' => $billingInfo->last_name,
+                'email' => $billingInfo->email,
+                'phone' => $this->normalizePhoneNumber($billingInfo->phone),
+                'address_id' => $validated['address_id'],
+            ];
+
+            // Reserve inventory
+            $reservationResult = $this->reserveInventory($cartItems);
+            if (!$reservationResult['success']) {
+                return response()->json(['success' => false, 'message' => 'Inventory reservation failed: ' . $reservationResult['message']], 400);
+            }
+
+            // Create transaction record
+            $transaction = $this->createTransaction($paymentData, 'ewallet', $address, $billingInfo);
+
+            // Process payment with Xendit
+            $paymentResult = $this->processXenditEwalletPayment($paymentData, $transaction);
+
+            if ($paymentResult['success']) {
+                // Update transaction with Xendit response
+                $transaction->update([
+                    'xendit_id' => $paymentResult['xendit_id'] ?? null,
+                    'status' => 'pending',
+                    'xendit_response' => $paymentResult['response']
+                ]);
+
+                $orders = $this->createOrdersFromCart($cartItems, $transaction);
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'checkout_url' => $paymentResult['checkout_url']
+                ]);
+            } else {
+                $this->releaseInventoryReservation($cartItems);
+
+                $transaction->update([
+                    'status' => 'failed',
+                    'xendit_response' => $paymentResult['response']
+                ]);
+
+                DB::rollback();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $paymentResult['message'] ?? 'Payment failed'
+                ]);
+            }
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollback();
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            DB::rollback();
+            Log::error('E-wallet payment error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Payment processing failed'], 500);
+        }
+    }
+
     private function processXenditEwalletPayment($validatedData, $transaction)
     {
         try {
@@ -564,8 +536,6 @@ class CheckoutController extends Controller
             ];
         }
     }
-
-    // Keep all your existing helper methods...
 
     private function getBillingInfo()
     {
@@ -854,7 +824,6 @@ class CheckoutController extends Controller
 
     private function releaseInventoryReservation($cartItems)
     {
-        // If you implement reserved_stock column, release it here
         Log::info('Inventory reservation released for failed payment');
     }
 
@@ -917,9 +886,6 @@ class CheckoutController extends Controller
         return Transaction::create($transactionData);
     }
 
-    /**
-     * Format full address from separate database fields
-     */
     private function formatFullAddress($address)
     {
         $addressParts = [
@@ -933,7 +899,6 @@ class CheckoutController extends Controller
         return implode(', ', array_filter($addressParts));
     }
 
-    // Success and failure pages
     public function success(Request $request)
     {
         $transactionRef = $request->get('transaction');

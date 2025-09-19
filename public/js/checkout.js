@@ -606,7 +606,6 @@ class CheckoutManager {
 
         if (this.isProcessing) return;
 
-        // Validate all fields first
         const validationErrors = this.validateAllRequiredFields();
         if (validationErrors.length > 0) {
             this.showError('Please fix the following errors:\n• ' + validationErrors.join('\n• '));
