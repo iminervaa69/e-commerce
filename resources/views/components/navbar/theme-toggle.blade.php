@@ -33,7 +33,7 @@
 
             init() {
                 const storedTheme = this.getStoredTheme();
-                
+
                 // Initialize theme state
                 if (storedTheme) {
                     // User has made a choice, respect it
@@ -42,7 +42,7 @@
                     // No stored preference, use system preference
                     this.isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 }
-                
+
                 // Apply initial theme
                 this.applyTheme();
 
@@ -69,10 +69,10 @@
 
             toggleTheme() {
                 this.isDark = !this.isDark;
-                
+
                 // Store preference
                 localStorage.setItem('color-theme', this.isDark ? 'dark' : 'light');
-                
+
                 // Apply theme
                 this.applyTheme();
 

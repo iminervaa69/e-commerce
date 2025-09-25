@@ -12,7 +12,7 @@ class StoreController extends Controller
     public function index()
     {
         $stores = Store::all();
-        return view('admin.pages.stores.index', compact('stores'));
+        return view('seller.pages.dashboard', compact('stores'));
     }
 
     public function store(Request $request)

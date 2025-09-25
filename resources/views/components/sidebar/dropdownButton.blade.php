@@ -6,7 +6,7 @@
     {!! $svg !!}
 @endif
 
-<span class="flex-1 ms-3 text-left rtl:text-right whitespace-nowrap">
+<span class="flex-1 ms-5 text-left rtl:text-right whitespace-nowrap">
     {{ $value }}
 </span>
 

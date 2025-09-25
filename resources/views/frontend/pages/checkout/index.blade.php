@@ -200,7 +200,8 @@ Checkout
                             :tax="$tax ?? 0"
                             :discount="$discount ?? 0"
                             :voucher-code="$selectedVoucher['code'] ?? null"
-                            checkout-action="handleCheckoutSubmit" />
+                            checkout-action="handleCheckoutSubmit"
+                            data-total-amount="{{ $total ?? 0 }}" />
                     </div>
                 </div>
             </div>
@@ -218,28 +219,12 @@ Checkout
     modal-id="billing-modal"
     :show-default-checkbox="true" />
 
-<!-- Hidden Payment Form -->
-<form id="payment-form" style="display: none;">
-    <input type="hidden" name="_token" value="{{ csrf_token() }}" id>
-    <input type="hidden" name="amount" id="payment-amount">
-    <input type="hidden" name="token_id" id="payment-token">
-    <input type="hidden" name="authentication_id" id="payment-auth">
-    <input type="hidden" name="channel_code" id="payment-channel">
-    <input type="hidden" name="shipping_address_id" id="shipping-address-id">
-    <input type="hidden" name="billing_information_id" id="billing-information-id">
-</form>
 @endsection
 
 @push('scripts')
     <script>
-    // Xendit configuration
-    window.xenditPublicKey = '{{ config("xendivel.public_key") }}';
+    window.xenditPublicKey = '{{ config("services.xendit.public_key") }}';
 
-    if (typeof Xendit !== 'undefined') {
-        Xendit.setPublishableKey('{{ config("xendivel.public_key") }}');
-    }
-
-    // Bridge function for order summary component
     function handleCheckoutSubmit(component) {
         if (window.checkoutManager) {
             const event = { preventDefault: () => {} };
@@ -250,9 +235,7 @@ Checkout
         }
     }
 
-    // Payment form logger function
     function logPaymentForm() {
-        // console.log('=== PAYMENT FORM VALUES ===');
 
         const paymentForm = document.getElementById('payment-form');
         if (!paymentForm) {
@@ -278,70 +261,6 @@ Checkout
         console.log('=== END PAYMENT FORM VALUES ===');
     }
 
-    // Address/Billing refresh functions
-    function refreshAddressSelector() {
-        console.log('Refreshing address selector...');
-        // Implement actual refresh logic if needed
-    }
-
-    function refreshBillingSelector() {
-        console.log('Refreshing billing selector...');
-        // Implement actual refresh logic if needed
-    }
-
-    // Prevent multiple initializations
-    let checkoutPageInitialized = false;
-
-    // Main initialization
-    document.addEventListener('DOMContentLoaded', function() {
-        if (checkoutPageInitialized) {
-            console.log('Checkout already initialized, skipping...');
-            return;
-        }
-
-        checkoutPageInitialized = true;
-        console.log('Checkout page initialized');
-        console.log('Xendit available:', typeof Xendit !== 'undefined');
-
-        // Log payment form on load
-        // setTimeout(() => logPaymentForm(), 500); // Delay to ensure DOM is ready
-
-        // Listen for address/billing selection changes (use event delegation)
-        document.addEventListener('change', function(e) {
-            if (e.target.name === 'shipping_address' || e.target.name === 'billing_information') {
-                console.log('Selection changed:', e.target.name, '=', e.target.value);
-            }
-        });
-
-        // Listen for address events
-        ['address-saved', 'address-updated'].forEach(eventType => {
-            document.addEventListener(eventType, function(e) {
-                console.log(`${eventType}:`, e.detail.address);
-                refreshAddressSelector();
-            });
-        });
-
-        // Listen for billing events
-        ['billing-saved', 'billing-updated'].forEach(eventType => {
-            document.addEventListener(eventType, function(e) {
-                console.log(`${eventType}:`, e.detail.billing);
-                refreshBillingSelector();
-            });
-        });
-
-        // Watch for payment form changes
-        const paymentForm = document.getElementById('payment-form');
-        if (paymentForm) {
-            paymentForm.querySelectorAll('input').forEach(input => {
-                input.addEventListener('change', function() {
-                    console.log(`Payment form field changed: ${this.name || this.id} = ${this.value}`);
-                });
-            });
-        }
-    });
-
-    // Make functions globally available for debugging
-    window.logPaymentForm = logPaymentForm;
     window.logCheckoutData = function() {
         if (window.checkoutManager) {
             window.checkoutManager.logAllCheckoutData();
@@ -349,4 +268,4 @@ Checkout
     };
     </script>
     <script src="{{ asset('js/checkout.js') }}"></script>
-    @endpush
+@endpush

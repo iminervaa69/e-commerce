@@ -12,22 +12,15 @@
 </head>
 
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-
-<!-- ONLY Sidebar at top level -->
-    <div class="relative z-50">
-        @include('seller.layouts.sidebar')
+    <div class="relative z-40">
+        @include('seller.layouts.navbar')
     </div>
 
-    <!-- Main Content with navbar INSIDE -->
     <div id="mainContent" class="sm:ml-64">
-        
-        <!-- Navbar is NOW INSIDE main content -->
-        <div class="relative z-40">
-            @include('seller.layouts.navbar')
-        </div>
-        
-        <!-- Your page content -->
         <div class="p-4 pt-20">
+            <div class="relative z-30">
+                @include('seller.layouts.sidebar')
+            </div>
             @yield('content')
         </div>
     </div>
@@ -35,14 +28,12 @@
     <script src="https://unpkg.com/flowbite@latest/dist/flowbite.min.js"></script>
     <script src="https://unpkg.com/alpinejs" defer></script>
 
-    <!-- Content adjustment script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const mainContent = document.getElementById('mainContent');
 
-            // Listen for sidebar collapse events
             document.addEventListener('sidebarCollapsed', function(e) {
-                if (window.innerWidth >= 640) { // Only adjust on desktop
+                if (window.innerWidth >= 640) {
                     if (e.detail.collapsed) {
                         mainContent.classList.remove('sm:ml-64');
                         mainContent.classList.add('sm:ml-16');
@@ -53,7 +44,6 @@
                 }
             });
 
-            // Initialize based on stored state
             const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
             if (window.innerWidth >= 640) {
                 if (isCollapsed) {
@@ -65,13 +55,10 @@
                 }
             }
 
-            // Handle window resize
             window.addEventListener('resize', function() {
                 if (window.innerWidth < 640) {
-                    // Mobile view - remove all margin classes
                     mainContent.classList.remove('sm:ml-16', 'sm:ml-64');
                 } else {
-                    // Desktop view - restore margin based on sidebar state
                     const currentCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
                     if (currentCollapsed) {
                         mainContent.classList.remove('sm:ml-64');

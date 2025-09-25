@@ -37,6 +37,10 @@ return [
 
     'xendit' => [
         'secret_key' => env('XENDIT_SECRET_KEY'),
-        'webhook_secret' => env('XENDIT_WEBHOOK_VERIFICATION_TOKEN'),
+        'public_key' => env('XENDIT_PUBLIC_KEY'),
+        'webhook_token' => env('XENDIT_WEBHOOK_TOKEN'),
+        'base_url' => env('APP_ENV') === 'production'
+            ? 'https://api.xendit.co'
+            : 'https://api.xendit.co',
     ],
 ];

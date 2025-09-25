@@ -21,7 +21,7 @@
                     </svg>
                 </div>
             @endif
-            
+
             <div>
                 <div class="flex items-center space-x-2">
                     <h3 class="font-semibold text-lg dark:text-white">{{ $sellerName }}</h3>
@@ -30,7 +30,7 @@
                         <span class="text-sm text-green-600">46comp</span>
                     @endif
                 </div>
-                
+
                 @if($sellerRating > 0)
                     <div class="flex items-center space-x-1">
                         <div class="flex">
@@ -43,8 +43,7 @@
                         <span class="text-xs text-gray-600">{{ $sellerRating }}.0 (1,3 rb)</span>
                     </div>
                 @endif
-                
-                {{-- Response Time --}}
+
                 @if($responseTime)
                     <p class="text-sm text-gray-600">± {{ $responseTime }} pesanan diproses</p>
                 @endif
@@ -70,7 +69,7 @@
                 <p class="text-sm dark:text-gray-300">Dikirim dari <span class="font-medium">{{ $sellerLocation }}</span></p>
             </div>
         </div>
-        
+
         <div class="flex items-start space-x-2">
             <svg class="w-4 h-4 text-gray-500 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
